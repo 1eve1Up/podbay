@@ -535,6 +535,6 @@ Use at your own risk.
 
 ## Maintained by Level Up Labs
 
-Podbay is an open-source project by [Level Up Labs](https://leveluplabs.ai).
+Podbay is an open-source project by [Level Up Labs](https://levelupla.io).
 
 We are building solutions for enterprise-grade AI systems and agent-native software delivery.
