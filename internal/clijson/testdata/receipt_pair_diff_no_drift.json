@@ -1,0 +1,25 @@
+{
+  "format_version": 1,
+  "kind": "diff",
+  "status": "ok",
+  "drift": false,
+  "env_value_display_policy": "redacted",
+  "receipt_pair_diff_version": 2,
+  "receipt_pair": {
+    "project_a": "demo",
+    "project_b": "demo",
+    "contract_path_a": "/app/p.yaml",
+    "contract_path_b": "/app/p.yaml",
+    "profiles_a": [
+      "a",
+      "b"
+    ],
+    "profiles_b": [
+      "b",
+      "a"
+    ],
+    "project_match": true,
+    "contract_path_match": true,
+    "profiles_match": true
+  }
+}

@@ -1,0 +1,26 @@
+# Podbay contract (single-service example).
+# Multi-service: `depends_on` is child→parent (startup). Optional `dependents:` on a parent lists
+# every child that `depends_on` that parent (bidirectional validation). Partial deploy defaults to
+# explicit targets only; use `--dependents` for transitive downstream expansion. See README / flowboard.
+version: "1"
+project: myapp
+
+requirements:
+  - type: command_exists
+    command: podman
+
+services:
+  web:
+    image: docker.io/library/nginx:alpine
+    ports:
+      - "8080:80"
+    health:
+      http:
+        url: http://127.0.0.1:8080/
+        timeout: 15s
+    requirements:
+      - type: port_available
+        port: 8080
+
+volumes: {}
+networks: {}

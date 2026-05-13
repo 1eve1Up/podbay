@@ -1,0 +1,180 @@
+# Podbay equivalent of example-docker-compose.yml (Flowboard stack).
+# Intended to live in the Flowboard repo root (same layout as that compose file):
+#   backend/Dockerfile, frontend/, caddy/Dockerfile, observability/, .env.example, optional .env
+#
+# Default stack (no profiles): api + web + caddy
+# Observability: podbay deploy --profile observability
+#
+# Host-side substitution: ${VAR:-default} uses the process environment plus, when present,
+# .env.example then .env in this directory (override with top-level host_env_files).
+#
+# Matches docker-compose.yml layout. Podbay-only behavior (no extra YAML vs Compose):
+# - Named volume mounts get Podman ":U" automatically (disable: podman.disable_auto_volume_u).
+# - host.containers.internal is added when you list host.docker.internal (Docker Desktop parity).
+# - On macOS/Windows, the project bridge is created with --dns 8.8.8.8 (Compose-like external DNS).
+#   Override with podman.network_dns or disable with podman.disable_default_bridge_dns.
+#
+# Podman + this backend image: the Dockerfile runs as root then drops to uid 1000 ("blz") for the app.
+# Docker Desktop often hides named-volume ownership; Podman ":U" chowns to the container *primary* UID.
+# So api must set user: "1000:1000" here (Compose omits it; Podbay needs it for the same image on Podman).
+# If your entrypoint must stay root-only, use Dockerfile USER instead and drop this line.
+#
+# VPN: optional network.mtu — after changes, podman network rm podbay_flowboard then redeploy.
+#
+# Ollama on the same machine as Podman: the API must use a hostname that resolves inside the
+# container (not localhost). Default is http://host.docker.internal:11434 (extra_hosts + Podbay alias).
+# Host Ollama must listen on all interfaces (e.g. OLLAMA_HOST=0.0.0.0:11434 when starting ollama serve).
+#
+# Host-side ${…} substitution merges .env.example into the contract (unlike Docker Compose, which
+# does not use service env_file for compose-file ${VAR:-default}). If .env.example sets
+# OLLAMA_BASE_URL=http://localhost:… for bare-metal dev, that value must NOT drive this default or
+# the container would call itself. Override URL for Podbay with PODBAY_OLLAMA_BASE_URL in .env.
+#
+# Optional `dependents:` on a parent lists every service that `depends_on` that parent
+# (inverse index; validate enforces both directions). Partial deploy defaults to explicit targets;
+# use `--dependents` for transitive downstream expansion within the profile-active set.
+
+version: "1"
+project: flowboard
+
+# network:
+#   mtu: 1280
+
+requirements:
+  - type: command_exists
+    command: podman
+
+volumes:
+  flowboard-data: {}
+  caddy-certs: {}
+  prometheus-data: {}
+  grafana-data: {}
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: flowboard-backend:local
+    # Required on Podman with auto :U — see header. Docker Compose often works without this line.
+    user: "1000:1000"
+    # Podbay adds host.containers.internal (same target) for Docker Desktop parity.
+    # host-gateway is rewritten for Podman Machine (podman machine ssh getent, else 192.168.127.254).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    expose:
+      - "8000"
+    environment:
+      FLOWBOARD_DATA_DIR: /var/lib/flowboard
+      FLOWBOARD_HTTPS: "1"
+      FLOWBOARD_TRUSTED_PROXY_IPS: "127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+      FLOWBOARD_LICENSE_PUBLIC_KEY: "<KEY_HERE>"
+      FLOWBOARD_RETRIEVAL_EMBEDDINGS: ollama
+      OLLAMA_EMBEDDING_MODEL: all-minilm
+      # Podman / Docker Desktop: reach host Ollama from the container. Use PODBAY_OLLAMA_BASE_URL in
+      # .env to override (not OLLAMA_BASE_URL — see header: .env.example often sets that for host dev).
+      OLLAMA_BASE_URL: "${PODBAY_OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
+    volumes:
+      - flowboard-data:/var/lib/flowboard
+    env_file:
+      - path: .env.example
+        required: true
+      - path: .env
+        required: false
+    health:
+      exec:
+        command:
+          - python
+          - -c
+          - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=5).read()"
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 90s
+    dependents:
+      - web
+      - prometheus
+      - caddy
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: flowboard-frontend:local
+    expose:
+      - "80"
+    environment:
+      BACKEND_UPSTREAM: api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    dependents:
+      - caddy
+
+  caddy:
+    build:
+      context: .
+      dockerfile: caddy/Dockerfile
+    image: flowboard-caddy:local
+    ports:
+      - "${PUBLISH_HTTP_PORT:-8081}:80"
+      - "${PUBLISH_HTTPS_PORT:-8443}:443"
+    environment:
+      PUBLIC_HTTPS_HOST_PORT: "${PUBLISH_HTTPS_PORT:-8443}"
+    volumes:
+      - "${CADDY_CERTS_VOLUME:-caddy-certs}:/etc/caddy/certs:ro"
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started
+    health:
+      exec:
+        command:
+          - curl
+          - -fsSk
+          - https://127.0.0.1:443/api/ready
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  prometheus:
+    profiles:
+      - observability
+    image: docker.io/prom/prometheus:v2.53.2
+    volumes:
+      - prometheus-data:/prometheus
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    expose:
+      - "9090"
+    depends_on:
+      api:
+        condition: service_healthy
+    dependents:
+      - grafana
+
+  grafana:
+    profiles:
+      - observability
+    image: docker.io/grafana/grafana:11.5.2
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-changeme}
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-https://127.0.0.1:8443/grafana/}
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    expose:
+      - "3000"
+    depends_on:
+      prometheus:
+        condition: service_started
+    health:

@@ -1,0 +1,74 @@
+{
+  "format_version": 1,
+  "kind": "diff",
+  "status": "failed",
+  "issues": [
+    {
+      "level": "fail",
+      "code": "receipt_diff_project_mismatch",
+      "message": "project mismatch: first=\"p1\" second=\"p2\""
+    },
+    {
+      "level": "fail",
+      "code": "receipt_diff_contract_path_mismatch",
+      "message": "contract_path mismatch: first=\"/a.yaml\" second=\"/b.yaml\""
+    },
+    {
+      "level": "fail",
+      "code": "receipt_diff_profiles_mismatch",
+      "message": "profiles mismatch: first=[dev] second=[prod]"
+    },
+    {
+      "level": "fail",
+      "code": "receipt_diff_service_removed",
+      "message": "service \"api\" present only in first receipt",
+      "service": "api"
+    },
+    {
+      "level": "fail",
+      "code": "receipt_diff_service_added",
+      "message": "service \"web\" present only in second receipt",
+      "service": "web"
+    }
+  ],
+  "drift": true,
+  "env_value_display_policy": "redacted",
+  "receipt_pair_diff_version": 2,
+  "receipt_pair": {
+    "project_a": "p1",
+    "project_b": "p2",
+    "contract_path_a": "/a.yaml",
+    "contract_path_b": "/b.yaml",
+    "profiles_a": [
+      "dev"
+    ],
+    "profiles_b": [
+      "prod"
+    ],
+    "project_match": false,
+    "contract_path_match": false,
+    "profiles_match": false,
+    "services": [
+      {
+        "service": "api",
+        "codes": [
+          "receipt_diff_service_removed"
+        ],
+        "first": {
+          "container_name": "n1",
+          "image": "i1"
+        }
+      },
+      {
+        "service": "web",
+        "codes": [
+          "receipt_diff_service_added"
+        ],
+        "second": {
+          "container_name": "n2",
+          "image": "i2"
+        }
+      }
+    ]
+  }
+}

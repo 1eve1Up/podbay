@@ -1,0 +1,4 @@
+services:
+  api:
+    image: docker.io/library/alpine:latest
+    command: ["sleep", "300"]

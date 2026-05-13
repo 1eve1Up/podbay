@@ -1,0 +1,12 @@
+.DS_Store
+.env
+.facter-bot/
+.factimonious/
+.podbay/
+.ghostship/
+.venv/
+AGENTS.md
+facter-bot.yaml
+/podbay
+tools/run-sprint-tests.sh
+scancode-license-report.json

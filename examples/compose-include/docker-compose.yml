@@ -1,0 +1,5 @@
+include:
+  - ./fragment.yml
+services:
+  web:
+    image: docker.io/library/nginx:alpine
