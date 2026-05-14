@@ -21,6 +21,7 @@ const (
 	KindReceiptRead = "receipt_read"
 	KindDiff        = "diff"
 	KindTeardown    = "teardown"
+	KindLogs        = "logs"
 )
 
 // Status is a coarse outcome for automation.
@@ -29,7 +30,7 @@ const (
 	StatusFailed = "failed"
 )
 
-// Document is the v1 top-level JSON object for validate/deploy/receipt/diff/teardown --json.
+// Document is the v1 top-level JSON object for validate/deploy/receipt/diff/teardown/logs --json.
 //
 // added the diff payload fields (Drift, ServicesStatus, Extras) as
 // additive optional fields. They serialize only when the document represents
@@ -45,6 +46,8 @@ const (
 //
 // KindImportCompose is used for import compose --json failure envelopes only;
 // success imports still emit YAML to stdout or -o (contract_path names the Compose source file).
+//
+// KindLogs is used for logs --json (success or failure); success includes log_body.
 //
 // Receipt-pair diff (KindDiff): when comparing two deploy receipts, set
 // receipt_pair with compared fields; contract-vs-runtime diff omits it.
@@ -81,6 +84,12 @@ type Document struct {
 	// Teardown-only (KindTeardown): container names removed; volume Podman names removed when -v.
 	ContainersRemoved []string `json:"containers_removed,omitempty"`
 	VolumesRemoved    []string `json:"volumes_removed,omitempty"`
+	// Logs-only (KindLogs): one-shot podman logs capture when using logs --json without --follow.
+	LogsService       string  `json:"service,omitempty"`
+	LogsContainerName string  `json:"container_name,omitempty"`
+	LogsTail          int     `json:"tail,omitempty"`
+	LogsSince         string  `json:"since,omitempty"`
+	LogsBody          *string `json:"log_body,omitempty"`
 }
 
 // DiffServiceStatus is one expected service's runtime outcome inside a

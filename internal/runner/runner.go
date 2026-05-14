@@ -531,6 +531,13 @@ func (r *Runner) EnsureVolume(logicalName string) (volName string, created bool,
 	return volName, true, nil
 }
 
+// LogsBytes runs podman logs without follow and returns combined stdout/stderr.
+func LogsBytes(container string, tail int, since string) ([]byte, error) {
+	var buf bytes.Buffer
+	err := Logs(&buf, container, false, tail, since)
+	return buf.Bytes(), err
+}
+
 // Logs runs `podman logs` for a container, writing interleaved stdout/stderr to w.
 func Logs(w io.Writer, container string, follow bool, tail int, since string) error {
 	args := []string{"logs"}

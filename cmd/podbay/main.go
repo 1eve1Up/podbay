@@ -610,6 +610,15 @@ func emitTeardownLoadJSON(cmd *cobra.Command, contractPath, project string, prof
 	fmt.Fprintln(cmd.OutOrStdout(), strings.TrimSpace(string(raw)))
 }
 
+func emitLogsJSON(cmd *cobra.Command, doc *clijson.Document) {
+	raw, err := clijson.MarshalIndent(doc)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Fprintln(cmd.OutOrStdout(), strings.TrimSpace(string(raw)))
+}
+
 // logContractPathAndService: with --file, args must be exactly [service]. Otherwise [service] or [contract] [service].
 func logContractPathAndService(fileFlag string, args []string, defaultFile string) (contractPath, service string, err error) {
 	if fileFlag != "" {
@@ -693,6 +702,7 @@ func logsCmd(fileFlag *string, defaultFile string) *cobra.Command {
 	follow := false
 	tailN := 0
 	since := ""
+	jsonOut := false
 	cmd := &cobra.Command{
 		Use:   "logs [podbay.yaml|directory] <service>",
 		Short: "Show logs for a service container (podman logs)",
@@ -706,34 +716,83 @@ Use the same --profile flags as validate, deploy, ps, and teardown so <service> 
 
 This command always tails one container; multi-service aggregation is not implemented.
 
-Note: use --follow on this command to stream logs (the root -f/--file flag selects the contract file, not log follow).`,
+Note: use --follow on this command to stream logs (the root -f/--file flag selects the contract file, not log follow).
+
+With --json: print one versioned JSON document (format_version, kind logs) on stdout. Cannot be used with --follow. Success includes captured log text in log_body (may be empty). Exit code 1 on any failure.
+
+Exit codes:
+  0  Logs printed or JSON success.
+  1  Contract load failure, service not active for profiles, podman unavailable, podman logs error, or --json with --follow.`,
 		Args:         cobra.RangeArgs(1, 2),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if jsonOut && follow {
+				emitLogsJSON(cmd, clijson.LogsFailure("", "", profiles, "", clijson.CodeLogsUsageJSONFollow, "logs: --json cannot be used with --follow"))
+				os.Exit(1)
+			}
 			if *fileFlag != "" && len(args) != 1 {
+				if jsonOut {
+					emitLogsJSON(cmd, clijson.LogsFailure("", "", profiles, "", clijson.CodeLogsUsageArgs, "with --file / -f, pass exactly one argument: the service name"))
+					os.Exit(1)
+				}
 				return fmt.Errorf("with --file / -f, pass exactly one argument: the service name")
 			}
 			if *fileFlag == "" && len(args) != 1 && len(args) != 2 {
+				if jsonOut {
+					emitLogsJSON(cmd, clijson.LogsFailure("", "", profiles, "", clijson.CodeLogsUsageArgs, "expected <service> or <contract-path> <service>"))
+					os.Exit(1)
+				}
 				return fmt.Errorf("expected <service> or <contract-path> <service>")
-			}
-			if err := runner.EnsurePodman(); err != nil {
-				return err
 			}
 			path, svc, err := logContractPathAndService(*fileFlag, args, defaultFile)
 			if err != nil {
+				if jsonOut {
+					emitLogsJSON(cmd, clijson.LogsFailure("", "", profiles, "", clijson.CodeLogsUsageArgs, err.Error()))
+					os.Exit(1)
+				}
 				return err
 			}
 			c, contractPath, err := spec.Load(path)
 			if err != nil {
+				if jsonOut {
+					failPath := contractPath
+					if failPath == "" {
+						failPath = path
+					}
+					pabs, _ := filepath.Abs(failPath)
+					emitLogsJSON(cmd, clijson.LogsFailure(pabs, "", profiles, "", clijson.CodeLogsLoadError, augmentContractLoadError(path, err).Error()))
+					os.Exit(1)
+				}
 				return augmentContractLoadError(path, err)
 			}
+			absContract, _ := filepath.Abs(contractPath)
 			proj := projectName(c, contractPath)
 			active := c.ServicesForProfiles(profiles)
 			if _, ok := active[svc]; !ok {
+				if jsonOut {
+					emitLogsJSON(cmd, clijson.LogsFailure(absContract, proj, profiles, svc, clijson.CodeLogsServiceNotActive, fmt.Sprintf("service %q is not active for this profile set (check --profile and spelling)", svc)))
+					os.Exit(1)
+				}
 				return fmt.Errorf("service %q is not active for this profile set (check --profile and spelling)", svc)
+			}
+			if err := runner.EnsurePodman(); err != nil {
+				if jsonOut {
+					emitLogsJSON(cmd, clijson.LogsFailure(absContract, proj, profiles, svc, clijson.CodeLogsPodmanUnavailable, err.Error()))
+					os.Exit(1)
+				}
+				return err
 			}
 			r := runner.New(proj)
 			cname := r.ContainerName(svc)
+			if jsonOut {
+				out, err := runner.LogsBytes(cname, tailN, since)
+				if err != nil {
+					emitLogsJSON(cmd, clijson.LogsFailure(absContract, proj, profiles, svc, clijson.CodeLogsRuntimeError, err.Error()))
+					os.Exit(1)
+				}
+				emitLogsJSON(cmd, clijson.FromLogsSuccess(absContract, proj, profiles, svc, cname, tailN, since, string(out)))
+				return nil
+			}
 			return runner.Logs(cmd.OutOrStdout(), cname, follow, tailN, since)
 		},
 	}
@@ -741,6 +800,7 @@ Note: use --follow on this command to stream logs (the root -f/--file flag selec
 	cmd.Flags().BoolVar(&follow, "follow", false, "follow log output (podman logs -f)")
 	cmd.Flags().IntVar(&tailN, "tail", 0, "only show the last N lines (0 means all lines)")
 	cmd.Flags().StringVar(&since, "since", "", "only show logs since timestamp (podman logs --since), e.g. 10m or 2024-01-01")
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit versioned JSON (format_version, kind logs) for agents and CI")
 	return cmd
 }
 

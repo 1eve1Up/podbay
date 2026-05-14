@@ -52,7 +52,7 @@ func TestDocument_diffFields_omitForOtherKinds(t *testing.T) {
 		if err := json.Unmarshal(raw, &m); err != nil {
 			t.Fatalf("%s: %v", c.name, err)
 		}
-		for _, k := range []string{"drift", "services_status", "extras", "receipt_pair", "dependents_expand"} {
+		for _, k := range []string{"drift", "services_status", "extras", "receipt_pair", "dependents_expand", "log_body", "container_name"} {
 			if _, ok := m[k]; ok {
 				t.Errorf("%s: unexpected key %q present in non-diff document:\n%s", c.name, k, string(raw))
 			}

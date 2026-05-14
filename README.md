@@ -56,7 +56,7 @@ Podbay uses calendar-based release versions. Calendar versions identify releases
 - Writes deploy receipts with `podbay deploy --receipt receipt.json` so a deployment has a durable machine-readable artifact.
 - Compares contract vs runtime with `podbay diff`, or receipt vs receipt with `podbay diff before.json after.json`.
 - Explains runtime state with `podbay explain`, including health probes and dependency context.
-- Emits versioned JSON for agents and CI on key commands: `validate`, `deploy`, `diff`, `receipt`, `teardown`, and `down`.
+- Emits versioned JSON for agents and CI on key commands: `validate`, `deploy`, `diff`, `receipt`, `teardown`, `down`, and `logs`.
 - Handles practical Podman parity issues that otherwise waste operator and agent time: named volume `:U`, Podman Machine DNS, `host-gateway`, `host.docker.internal` / `host.containers.internal`, network MTU, and health/log failure hints.
 
 ## The agent angle
@@ -69,6 +69,7 @@ Podbay gives agents:
 - **A preflight gate**: `podbay validate --json` before touching runtime.
 - **A deploy gate**: `podbay deploy --json --receipt ...` with structured success/failure.
 - **A drift gate**: `podbay diff --json` to prove runtime matches the contract.
+- **A log gate**: `podbay logs --json` for one-shot captured container logs (not combinable with `--follow`).
 - **A durable receipt**: a deploy artifact that can be compared later without asking the agent to narrate from memory.
 - **A shared language**: builder, reviewer, test, deploy, security, and ops agents can all reason over the same file and JSON envelopes.
 
@@ -134,6 +135,7 @@ podbay deploy   -f examples/nginx --receipt /tmp/podbay-nginx-receipt.json --jso
 podbay diff     -f examples/nginx --json
 podbay receipt  /tmp/podbay-nginx-receipt.json --json
 podbay down     -f examples/nginx --json
+podbay logs     -f examples/nginx --json web
 ```
 
 ## Minimal `podbay.yaml`
@@ -461,6 +463,7 @@ Podbay is meant to fail closed in automation:
 - `deploy` exits non-zero on validation or runtime failure and does not write a partial receipt.
 - `diff` exits non-zero when drift is detected or comparison cannot complete.
 - `teardown` / `down` remove what they can and report structured issues in JSON; network removal warnings are non-fatal.
+- `logs --json` exits **0** on success (including an empty `log_body`) and **1** on contract/profile errors, Podman unavailability, `podman logs` failure, or **`--json` with `--follow`** (streaming JSON is not defined in this release).
 
 Use `--json` when the caller is a script, CI job, or code agent.
 

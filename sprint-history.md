@@ -1,6 +1,54 @@
-# Sprint 21: Placeholder
+# Sprint 21: Machine-readable `podbay logs` (`--json`)
 
 2026-05-14
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Carries from Sprint 20:** Partial lifecycle and profile-aligned **`logs`** shipped; automation still could not consume **`logs`** as versioned JSON.
+
+---
+
+## Sprint goal
+
+Ship **`podbay logs --json`** with **`kind: logs`**, stable **`issues[].code`** values on failure, **`log_body`** on success (one-shot capture; **`--json`** incompatible with **`--follow`**), integration tests, and README / PRD / RELEASES alignment.
+
+---
+
+### What happened
+
+We shipped **`podbay logs --json`**: **`KindLogs`**, **`FromLogsSuccess`** / **`LogsFailure`**, stable codes, **`runner.LogsBytes`**, **`logsCmd`** wiring (contract/profile resolution **before** **`EnsurePodman`** for accurate JSON without Podman), **`logs_json_integration_test.go`**, and documentation updates on **`main`** (**402 insertions / 8 deletions** in commit **`806aadd`**). Pinion **PIN-175**–**PIN-180** were run to **`released`** with **`pinion retro`** closing the sprint (PB-1 bundle under Pinion **`artifacts/sprint-21/`**).
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-05-14 (UTC, sprint wrap)
+- **PIN / work units**: **PIN-175** … **PIN-180** (Pinion coordination); Podbay implementation delivered as a **single merge** to **`main`**.
+- **Scope**: Close the **JSON** gap on **`logs`** so the agent/operator path matches **`validate`**, **`deploy`**, **`diff`**, **`explain`**, **`receipt`**, **`teardown`**, and **`down`**.
+
+### Stats
+
+- **Pinion merge snapshot** (per-unit merge rows): **0** lines added / net (coordination-only merges); **~970** estimated input tokens summed across units.
+- **Git (Podbay):** **402** insertions, **8** deletions, **11** files (see **`806aadd`**).
+
+### 5 whys (why **`logs`** lagged other JSON commands)
+
+1. **Why could CI not consume `logs` outcomes structurally?** It only exposed streamed **`podman`** text—no **`clijson`** envelope.
+2. **Why no envelope?** **`logs`** was modeled as a thin wrapper, not a peer to **`diff`** / **`teardown`** for automation.
+3. **Why did that survive Sprint 20?** Sprint 20 scoped **`logs`** to **help + profiles** and deferred multi-stream / follow complexity.
+4. **Why defer `--json` then?** **`--json` + `--follow`** needs an explicit streaming contract; shipping unspecified behavior would break parsers.
+5. **Root lesson:** Commands used as **evidence** in the agent loop must emit the **same JSON discipline** or document a deliberate exception—otherwise “machine-readable Podbay” is still a lie at **`logs`**.
+
+### Actions
+
+- [x] Ship **`logs --json`** and docs (**this sprint**).
+- [x] Run **`pinion retro`** and record closure (**this sprint**).
+- [ ] Optional: dedupe partial-selection **`--dependents`** help across commands (cosmetic).
+- [ ] Optional: **`logs`** multi-service or **`--json` + `--follow`** behind a written contract + tests.
+
+### Notes
+
+- Pinion PB-1 path (local dev tree): **`pinion/pinion/sprints/artifacts/sprint-21/`** when present; **`pinion retro`** appended **`## Retrospective`** to **`pinion/pinion/sprints/sprint-21.md`** and cleared **`project.active_sprint`**.
 
 # Sprint 20: Partial lifecycle (teardown, down, logs alignment)
 
