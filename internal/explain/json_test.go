@@ -23,7 +23,7 @@ func TestExplainJSONV1RequiredKeys(t *testing.T) {
 	if err := json.Unmarshal(data, &m); err != nil {
 		t.Fatal(err)
 	}
-	for _, k := range []string{"format_version", "project", "contract_path", "active_services", "services"} {
+	for _, k := range []string{"format_version", "kind", "status", "project", "contract_path", "active_services", "issues", "services"} {
 		if _, ok := m[k]; !ok {
 			t.Errorf("missing top-level key %q", k)
 		}

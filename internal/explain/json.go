@@ -17,6 +17,8 @@ const ExplainJSONFormatVersion = 1
 
 type explainJSONV1 struct {
 	FormatVersion        int            `json:"format_version"`
+	Kind                 string         `json:"kind"`
+	Status               string         `json:"status"`
 	Project              string         `json:"project"`
 	ContractPath         string         `json:"contract_path"`
 	Profiles             []string       `json:"profiles,omitempty"`
@@ -25,8 +27,17 @@ type explainJSONV1 struct {
 	ActiveServices       []string       `json:"active_services"`
 	Focus                string         `json:"focus,omitempty"`
 	Dependencies         *focusDepsJSON `json:"dependencies,omitempty"`
+	Issues               []explainIssue `json:"issues"`
 	Services             []serviceJSON  `json:"services"`
 	UnexpectedContainers []string       `json:"unexpected_containers,omitempty"`
+}
+
+// explainIssue keeps the envelope shape consistent with validate/deploy/diff documents.
+type explainIssue struct {
+	Level   string `json:"level"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Service string `json:"service,omitempty"`
 }
 
 type focusDepsJSON struct {
@@ -112,11 +123,14 @@ func ReportJSON(c *spec.Contract, contractPath, project string, profiles []strin
 
 	out := explainJSONV1{
 		FormatVersion:  ExplainJSONFormatVersion,
+		Kind:           "explain",
+		Status:         "ok",
 		Project:        project,
 		ContractPath:   contractPath,
 		Profiles:       profiles,
 		ActiveServices: iterate,
 		Focus:          focusOut,
+		Issues:         []explainIssue{},
 		Services:       svcs,
 	}
 	if len(deployRoots) > 0 {
@@ -125,6 +139,17 @@ func ReportJSON(c *spec.Contract, contractPath, project string, profiles []strin
 	}
 	if focusOut != "" {
 		out.Dependencies = buildFocusDepsJSON(profileActive, focusOut)
+	}
+
+	for _, svc := range svcs {
+		if svc.InspectError != "" {
+			out.Issues = append(out.Issues, explainIssue{
+				Level:   "warn",
+				Code:    "explain_inspect_error",
+				Message: svc.InspectError,
+				Service: svc.Name,
+			})
+		}
 	}
 
 	extrasSeed := spec.ServiceNamesSorted(profileActive)

@@ -380,7 +380,7 @@ Podbay supports two kinds of entries under top-level `networks:`:
 **Requirements:**
 
 - Create external networks yourself before `podbay deploy` (e.g. `podman network create mynet`).
-- `podbay validate` does not require Podman; `deploy` fails if an external network is missing.
+- `podbay validate` does not query Podman for external-network state, but a contract that declares `command_exists: podman` under `requirements:` (as the shipped examples do) will still fail closed when Podman is absent. `deploy` fails if an external network is missing.
 - Do not set non-bridge `driver:` on external networks (Podbay does not create them; overlay/host drivers are rejected).
 
 **Mixing internal and external** is allowed: internal networks are still project-scoped; external networks use the names above.

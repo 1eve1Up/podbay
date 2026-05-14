@@ -133,6 +133,13 @@ func WriteAtomic(path string, r *Receipt) error {
 		_ = f.Close()
 		return fmt.Errorf("receipt: write: %w", err)
 	}
+	// Sync the file body before close so a crash between rename and writeback cannot
+	// leave the target path pointing at a 0-byte receipt. The directory fsync below
+	// likewise persists the rename itself.
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("receipt: sync: %w", err)
+	}
 	if err := f.Close(); err != nil {
 		return fmt.Errorf("receipt: close: %w", err)
 	}
@@ -140,5 +147,9 @@ func WriteAtomic(path string, r *Receipt) error {
 		return fmt.Errorf("receipt: rename to %s: %w", path, err)
 	}
 	cleanup = false
+	if dirF, err := os.Open(dir); err == nil {
+		_ = dirF.Sync()
+		_ = dirF.Close()
+	}
 	return nil
 }

@@ -11,6 +11,7 @@ on:
       - "go.mod"
       - "go.sum"
       - "tools/licensing/**"
+      - "tools/run-license-compliance.sh"
       - ".github/workflows/license-compliance.yml"
   push:
     branches:
@@ -24,7 +25,11 @@ on:
       - "go.mod"
       - "go.sum"
       - "tools/licensing/**"
+      - "tools/run-license-compliance.sh"
       - ".github/workflows/license-compliance.yml"
+
+permissions:
+  contents: read
 
 jobs:
   license:

@@ -25,6 +25,15 @@ func TestReportJSON_formatVersion(t *testing.T) {
 	if int(m["format_version"].(float64)) != JSONFormatVersion {
 		t.Fatalf("format_version %v", m["format_version"])
 	}
+	if m["kind"] != "ps" {
+		t.Fatalf("kind %v", m["kind"])
+	}
+	if m["status"] != "ok" {
+		t.Fatalf("status %v", m["status"])
+	}
+	if _, ok := m["issues"]; !ok {
+		t.Fatalf("issues key missing from envelope")
+	}
 	if m["project"] != "demo" {
 		t.Fatalf("project %v", m["project"])
 	}

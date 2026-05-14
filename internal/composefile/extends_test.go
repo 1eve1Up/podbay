@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -135,6 +136,52 @@ services:
 	}
 	if w.Environment["SHARED"] != "1" {
 		t.Fatalf("env: %#v", w.Environment)
+	}
+}
+
+func TestExtendsRejectsAbsoluteFile(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	rootPath := filepath.Join(dir, "compose.yml")
+	if err := os.WriteFile(rootPath, []byte(`
+services:
+  web:
+    extends:
+      file: /etc/passwd
+      service: app
+    image: docker.io/library/nginx:alpine
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load(rootPath)
+	if err == nil {
+		t.Fatal("expected error for absolute extends file")
+	}
+	if !strings.Contains(err.Error(), "absolute file paths are not supported") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestExtendsRejectsParentEscape(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	rootPath := filepath.Join(dir, "compose.yml")
+	if err := os.WriteFile(rootPath, []byte(`
+services:
+  web:
+    extends:
+      file: ../../../etc/passwd
+      service: app
+    image: docker.io/library/nginx:alpine
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load(rootPath)
+	if err == nil {
+		t.Fatal("expected error for extends path escape")
+	}
+	if !strings.Contains(err.Error(), "escapes compose directory") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

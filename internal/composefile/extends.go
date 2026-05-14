@@ -226,6 +226,7 @@ func ResolveExtends(primaryAbs string, f *File) error {
 		return nil
 	}
 	primaryAbs = filepath.Clean(primaryAbs)
+	primaryDir := filepath.Dir(primaryAbs)
 	fileMemo := make(map[string]*File) // abs -> parsed (unresolved body)
 	fileMemo[primaryAbs] = f
 
@@ -281,6 +282,9 @@ func ResolveExtends(primaryAbs string, f *File) error {
 		if strings.Contains(ref.File, "://") {
 			return ServiceSpec{}, fmt.Errorf("extends: URL files are not supported (%q)", ref.File)
 		}
+		if filepath.IsAbs(ref.File) {
+			return ServiceSpec{}, fmt.Errorf("extends: absolute file paths are not supported (%q)", ref.File)
+		}
 
 		nextChain := append(append([]string(nil), chain...), loopKey)
 
@@ -290,6 +294,9 @@ func ResolveExtends(primaryAbs string, f *File) error {
 			base, err = resolveInFile(fileAbs, fileF, ref.Service, nextChain)
 		} else {
 			subAbs := filepath.Clean(filepath.Join(filepath.Dir(fileAbs), ref.File))
+			if err := assertIncludePathUnderComposeRoot(primaryDir, subAbs); err != nil {
+				return ServiceSpec{}, fmt.Errorf("extends: %q: %w", ref.File, err)
+			}
 			subF, err2 := loadUnresolved(subAbs)
 			if err2 != nil {
 				return ServiceSpec{}, fmt.Errorf("extends: read %q: %w", ref.File, err2)

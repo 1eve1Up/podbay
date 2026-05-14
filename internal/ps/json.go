@@ -23,13 +23,24 @@ type jsonRow struct {
 
 type jsonDoc struct {
 	FormatVersion    int       `json:"format_version"`
+	Kind             string    `json:"kind"`
+	Status           string    `json:"status"`
 	Project          string    `json:"project"`
 	ContractPath     string    `json:"contract_path"`
 	Profiles         []string  `json:"profiles,omitempty"`
 	DeployServices   []string  `json:"deploy_services,omitempty"`
 	DependentsExpand bool      `json:"dependents_expand,omitempty"`
 	ActiveServices   []string  `json:"active_services"`
+	Issues           []psIssue `json:"issues"`
 	Rows             []jsonRow `json:"containers"`
+}
+
+// psIssue keeps the envelope shape consistent with validate/deploy/diff documents.
+type psIssue struct {
+	Level   string `json:"level"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Service string `json:"service,omitempty"`
 }
 
 // ReportJSON returns indented JSON for agents (same row set as ListRows).
@@ -47,10 +58,13 @@ func ReportJSON(c *spec.Contract, contractPath, project string, profiles []strin
 	sort.Strings(profiles)
 	out := jsonDoc{
 		FormatVersion:  JSONFormatVersion,
+		Kind:           "ps",
+		Status:         "ok",
 		Project:        project,
 		ContractPath:   filepath.Clean(contractPath),
 		Profiles:       profiles,
 		ActiveServices: names,
+		Issues:         []psIssue{},
 		Rows:           make([]jsonRow, 0, len(rows)),
 	}
 	if len(deployRoots) > 0 {
@@ -67,6 +81,14 @@ func ReportJSON(c *spec.Contract, contractPath, project string, profiles []strin
 			Image:     rw.Image,
 			Missing:   rw.Missing,
 		})
+		if rw.Error != "" {
+			out.Issues = append(out.Issues, psIssue{
+				Level:   "warn",
+				Code:    "ps_inspect_error",
+				Message: rw.Error,
+				Service: rw.Service,
+			})
+		}
 	}
 	return json.MarshalIndent(out, "", "  ")
 }

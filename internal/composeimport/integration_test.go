@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/1eve1Up/podbay/internal/clijson"
@@ -278,6 +279,64 @@ services:
 	w := loaded.Services["web"]
 	if len(w.Volumes) < 2 {
 		t.Fatalf("expected config+secret mounts on web, got %#v", w.Volumes)
+	}
+}
+
+func TestImportComposeRejectsAbsoluteConfigFile(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	composePath := filepath.Join(dir, "docker-compose.yml")
+	if err := os.WriteFile(composePath, []byte(`
+configs:
+  bad:
+    file: /etc/passwd
+services:
+  web:
+    image: docker.io/library/nginx:alpine
+    configs:
+      - source: bad
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f, err := composefile.Load(composePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = ToContract(f, dir)
+	if err == nil {
+		t.Fatal("expected error for absolute config file path")
+	}
+	if !strings.Contains(err.Error(), "absolute host paths are not supported") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestImportComposeRejectsParentEscapeSecretFile(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	composePath := filepath.Join(dir, "docker-compose.yml")
+	if err := os.WriteFile(composePath, []byte(`
+secrets:
+  bad:
+    file: ../../../etc/shadow
+services:
+  web:
+    image: docker.io/library/nginx:alpine
+    secrets:
+      - bad
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f, err := composefile.Load(composePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = ToContract(f, dir)
+	if err == nil {
+		t.Fatal("expected error for secret path escape")
+	}
+	if !strings.Contains(err.Error(), "escapes compose directory") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

@@ -31,6 +31,7 @@ type ServiceSpec struct {
 	Image       string              `yaml:"image,omitempty"`
 	Build       *BuildSpec          `yaml:"build,omitempty"`
 	Ports       PortStrings         `yaml:"ports,omitempty"`
+	Expose      []string            `yaml:"expose,omitempty"`
 	Volumes     []string            `yaml:"volumes,omitempty"`
 	Environment StringOrMap         `yaml:"environment,omitempty"`
 	EnvFile     EnvFileList         `yaml:"env_file,omitempty"`

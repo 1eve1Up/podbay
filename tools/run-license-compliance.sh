@@ -20,7 +20,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LICENSE_DIR="${ROOT}/tools/licensing"
 
 usage() {
-  sed -n '1,20p' "$0" | tail -n +2
+  # Print only the leading comment block (skip shebang, stop at first non-comment line).
+  awk 'NR==1 && /^#!/ {next} /^#/ {sub(/^# ?/, ""); print; next} {exit}' "$0"
 }
 
 SKIP_SCANCODE=0

@@ -98,13 +98,22 @@ With --json: print a versioned envelope (kind receipt_read, format_version) cont
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			p := args[0]
+			abs, absErr := filepath.Abs(p)
+			if absErr != nil {
+				abs = p
+			}
 			data, err := os.ReadFile(p)
 			if err != nil {
+				if jsonOut {
+					doc := clijson.ReceiptReadFailure(abs, err)
+					raw, mErr := clijson.MarshalIndent(doc)
+					if mErr != nil {
+						return mErr
+					}
+					fmt.Fprintln(cmd.OutOrStdout(), strings.TrimSpace(string(raw)))
+					os.Exit(1)
+				}
 				return fmt.Errorf("receipt: read %s: %w", p, err)
-			}
-			abs, err := filepath.Abs(p)
-			if err != nil {
-				abs = p
 			}
 			rec, err := receipt.Decode(data)
 			if err != nil {
@@ -217,8 +226,15 @@ func contractPathAndDeployServices(fileFlag string, args []string, defaultFile s
 		if contractLocationExists(arg) {
 			return arg, nil, nil
 		}
-		c, _, err := spec.Load(defaultFile)
-		if err == nil {
+		// Disambiguate "service-name" vs "path-to-other-contract": if ./podbay.yaml
+		// exists and parses, a matching service name takes the partial-deploy path.
+		// A parse error on ./podbay.yaml is surfaced rather than silently falling
+		// through to interpret the arg as a (likely nonexistent) contract path.
+		if _, statErr := os.Stat(defaultFile); statErr == nil {
+			c, _, loadErr := spec.Load(defaultFile)
+			if loadErr != nil {
+				return "", nil, augmentContractLoadError(defaultFile, loadErr)
+			}
 			if _, ok := c.Services[arg]; ok {
 				return defaultFile, []string{arg}, nil
 			}
@@ -779,6 +795,7 @@ func diffCmd(fileFlag *string, defaultFile string) *cobra.Command {
 	jsonOut := false
 	receiptDiffShowEnv := false
 	dependents := false
+	mode := ""
 	cmd := &cobra.Command{
 		Use:   "diff [contract-path] [service ...]|diff <receipt-a> <receipt-b>",
 		Short: "Compare contract to Podman or compare two deploy receipts (drift detection)",
@@ -805,8 +822,23 @@ Exit codes:
 		Args:         cobra.ArbitraryArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if pathA, pathB, ok := diffArgsDecodeAsReceiptPair(args); ok {
-				return runReceiptPairDiff(cmd, pathA, pathB, jsonOut, profiles, receiptDiffShowEnv)
+			switch strings.ToLower(strings.TrimSpace(mode)) {
+			case "", "auto":
+				// auto-detect below
+			case "receipt", "receipt-pair":
+				if len(args) != 2 {
+					return fmt.Errorf("--mode receipt requires exactly two file arguments")
+				}
+				return runReceiptPairDiff(cmd, args[0], args[1], jsonOut, profiles, receiptDiffShowEnv)
+			case "contract":
+				// fall through to contract path below
+			default:
+				return fmt.Errorf("--mode must be auto, contract, or receipt (got %q)", mode)
+			}
+			if mode == "" || strings.EqualFold(mode, "auto") {
+				if pathA, pathB, ok := diffArgsDecodeAsReceiptPair(args); ok {
+					return runReceiptPairDiff(cmd, pathA, pathB, jsonOut, profiles, receiptDiffShowEnv)
+				}
 			}
 
 			c, path, deployServices, err := loadContractWithDeployServices(*fileFlag, args, defaultFile)
@@ -847,6 +879,7 @@ Exit codes:
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit versioned JSON (format_version) for agents and CI")
 	cmd.Flags().BoolVar(&receiptDiffShowEnv, "receipt-diff-show-env", false, "receipt pair only: include raw env values in JSON (default redacts; unsafe for logs)")
 	cmd.Flags().BoolVar(&dependents, "dependents", false, "with partial service targets, include transitive dependents within the profile-active set (contract diff only)")
+	cmd.Flags().StringVar(&mode, "mode", "", "force diff mode: 'contract' (compare contract vs Podman) or 'receipt' (compare two receipt files); default auto-detects from arguments")
 	return cmd
 }
 

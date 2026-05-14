@@ -81,9 +81,18 @@ func absHostPath(composeDir, p string) (string, error) {
 		return "", fmt.Errorf("empty host path")
 	}
 	if filepath.IsAbs(p) {
-		return filepath.Clean(p), nil
+		return "", fmt.Errorf("absolute host paths are not supported (%q); place the file under the compose directory and reference it relatively", p)
 	}
-	return filepath.Clean(filepath.Join(composeDir, p)), nil
+	composeDir = filepath.Clean(composeDir)
+	joined := filepath.Clean(filepath.Join(composeDir, p))
+	rel, err := filepath.Rel(composeDir, joined)
+	if err != nil {
+		return "", fmt.Errorf("resolve host path %q: %w", p, err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("host path %q escapes compose directory", p)
+	}
+	return joined, nil
 }
 
 func fileIsAnsibleVault(path string) (bool, error) {

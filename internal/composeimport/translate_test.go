@@ -180,14 +180,58 @@ func TestToContractBuildRequiresImage(t *testing.T) {
 
 func TestToContractHealthExec(t *testing.T) {
 	t.Parallel()
+	cases := []struct {
+		name     string
+		in       []string
+		wantCmd  []string
+		wantSkip bool
+	}{
+		{name: "CMD stripped", in: []string{"CMD", "true"}, wantCmd: []string{"true"}},
+		{name: "CMD-SHELL wraps", in: []string{"CMD-SHELL", "curl -f http://x/"},
+			wantCmd: []string{"sh", "-c", "curl -f http://x/"}},
+		{name: "NONE disables", in: []string{"NONE"}, wantSkip: true},
+		{name: "bare argv preserved", in: []string{"true"}, wantCmd: []string{"true"}},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			f := &composefile.File{
+				Services: map[string]composefile.ServiceSpec{
+					"a": {
+						Image: "x",
+						Healthcheck: &composefile.HealthcheckSpec{
+							Test:     tc.in,
+							Interval: "5s",
+						},
+					},
+				},
+			}
+			c, err := ToContract(f, t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			h := c.Services["a"].Health
+			if tc.wantSkip {
+				if h != nil {
+					t.Fatalf("expected nil Health for %v, got %#v", tc.in, h)
+				}
+				return
+			}
+			if h == nil || h.Exec == nil || !reflect.DeepEqual(h.Exec.Command, tc.wantCmd) {
+				t.Fatalf("input %v: got %#v want %v", tc.in, h, tc.wantCmd)
+			}
+		})
+	}
+}
+
+func TestToContractPassesExpose(t *testing.T) {
+	t.Parallel()
 	f := &composefile.File{
 		Services: map[string]composefile.ServiceSpec{
-			"a": {
-				Image: "x",
-				Healthcheck: &composefile.HealthcheckSpec{
-					Test:     []string{"CMD", "true"},
-					Interval: "5s",
-				},
+			"api": {
+				Image:  "x",
+				Expose: []string{"8000", "9090"},
 			},
 		},
 	}
@@ -195,9 +239,8 @@ func TestToContractHealthExec(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := c.Services["a"].Health
-	if h == nil || h.Exec == nil || !reflect.DeepEqual(h.Exec.Command, []string{"CMD", "true"}) {
-		t.Fatalf("health: %#v", h)
+	if got := c.Services["api"].Expose; !reflect.DeepEqual(got, []string{"8000", "9090"}) {
+		t.Fatalf("expose: got %#v", got)
 	}
 }
 

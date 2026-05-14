@@ -9,7 +9,38 @@ import (
 	"strings"
 )
 
-var substPattern = regexp.MustCompile(`\$\{([^}:]+)(:-([^}]*))?\}`)
+// Compose-compatible substitution forms understood by String:
+//
+//   - $$              → literal "$"
+//   - $VAR            → value of VAR (or unchanged when absent)
+//   - ${VAR}          → value of VAR (or unchanged when absent)
+//   - ${VAR:-default} → value if set and non-empty, else default
+//   - ${VAR-default}  → value if set (even empty), else default
+//   - ${VAR:?error}   → value if set and non-empty, else SubstitutionError
+//   - ${VAR?error}    → value if set (even empty), else SubstitutionError
+//   - ${VAR:+alt}     → alt if VAR is set and non-empty, else ""
+//   - ${VAR+alt}      → alt if VAR is set (even empty), else ""
+//
+// $$ must be matched before any $VAR form so the "escaped $" survives.
+var (
+	doubleDollar = regexp.MustCompile(`\$\$`)
+	bareVar      = regexp.MustCompile(`\$([A-Za-z_][A-Za-z0-9_]*)`)
+	bracedVar    = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)(?::?[-?+]([^}]*))?\}`)
+	bracedOpKind = regexp.MustCompile(`\$\{[A-Za-z_][A-Za-z0-9_]*(:?[-?+])`)
+)
+
+// SubstitutionError is returned by Substitute when a ${VAR:?msg} form is used and VAR is unset/empty.
+type SubstitutionError struct {
+	Var     string
+	Message string
+}
+
+func (e *SubstitutionError) Error() string {
+	if e.Message == "" {
+		return fmt.Sprintf("required substitution variable %q is unset", e.Var)
+	}
+	return fmt.Sprintf("required substitution variable %q: %s", e.Var, e.Message)
+}
 
 // MapFromEnviron parses KEY=VAL pairs (e.g. os.Environ).
 func MapFromEnviron(environ []string) map[string]string {
@@ -113,29 +144,88 @@ func LoadHostSubst(contractDir string, hostEnvFiles []string) (map[string]string
 	return m, nil
 }
 
-// String replaces ${VAR} and ${VAR:-default} using m.
-// Empty value uses default when :- is present; unset key with no default leaves the token unchanged.
+// String expands Compose-style substitution forms in s using m. Errors for the ${VAR:?msg}
+// form are silently dropped (the token is left unchanged); use Substitute to surface them.
 func String(s string, m map[string]string) string {
-	return substPattern.ReplaceAllStringFunc(s, func(match string) string {
-		sub := substPattern.FindStringSubmatch(match)
-		if len(sub) < 4 {
+	out, _ := Substitute(s, m)
+	return out
+}
+
+// Substitute expands Compose-style substitution forms in s using m. Returns a SubstitutionError
+// if any ${VAR:?msg} / ${VAR?msg} form has no value.
+func Substitute(s string, m map[string]string) (string, error) {
+	// First handle $$ → \x00 placeholder so later passes do not see it as a sigil.
+	const dollarPlaceholder = "\x00PODBAY_DOLLAR\x00"
+	s = doubleDollar.ReplaceAllString(s, dollarPlaceholder)
+
+	var firstErr error
+	expand := func(match string) string {
+		// Capture the operator kind ("", ":-", "-", ":?", "?", ":+", "+") to disambiguate.
+		opMatch := bracedOpKind.FindStringSubmatch(match)
+		op := ""
+		if len(opMatch) == 2 {
+			op = opMatch[1]
+		}
+		parts := bracedVar.FindStringSubmatch(match)
+		if len(parts) < 3 {
 			return match
 		}
-		key := sub[1]
-		hasDefault := sub[2] != ""
-		def := sub[3]
-		if v, ok := m[key]; ok {
-			if v != "" {
+		key, arg := parts[1], parts[2]
+		v, set := m[key]
+		empty := !set || v == ""
+		switch op {
+		case "":
+			if set {
 				return v
 			}
-			if hasDefault {
-				return def
+			return match
+		case ":-":
+			if empty {
+				return arg
 			}
 			return v
+		case "-":
+			if !set {
+				return arg
+			}
+			return v
+		case ":?":
+			if empty && firstErr == nil {
+				firstErr = &SubstitutionError{Var: key, Message: arg}
+			}
+			if empty {
+				return ""
+			}
+			return v
+		case "?":
+			if !set && firstErr == nil {
+				firstErr = &SubstitutionError{Var: key, Message: arg}
+			}
+			if !set {
+				return ""
+			}
+			return v
+		case ":+":
+			if !empty {
+				return arg
+			}
+			return ""
+		case "+":
+			if set {
+				return arg
+			}
+			return ""
 		}
-		if hasDefault {
-			return def
+		return match
+	}
+	s = bracedVar.ReplaceAllStringFunc(s, expand)
+	s = bareVar.ReplaceAllStringFunc(s, func(match string) string {
+		key := match[1:]
+		if v, ok := m[key]; ok {
+			return v
 		}
 		return match
 	})
+	s = strings.ReplaceAll(s, dollarPlaceholder, "$")
+	return s, firstErr
 }

@@ -126,11 +126,22 @@ func sanitize(s string) string {
 	return b.String()
 }
 
-// RemoveService removes a container if it exists.
+// RemoveService removes a container if it exists. A "no such container" stderr is treated
+// as success; any other failure (busy volume, SELinux denial, ...) is returned so the
+// caller does not stumble into "container name already in use" on the subsequent run.
 func (r *Runner) RemoveService(service string) error {
 	name := r.ContainerName(service)
-	_ = r.podman("rm", "-f", name).Run()
-	return nil
+	cmd := r.podman("rm", "-f", name)
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	low := strings.ToLower(string(out))
+	if strings.Contains(low, "no such container") || strings.Contains(low, "no container with name") {
+		return nil
+	}
+	trim := bytes.TrimSpace(out)
+	return fmt.Errorf("podman rm -f %s: %w: %s", name, err, trim)
 }
 
 // ContainerIsRunning reports whether the container exists and podman inspect reports State.Running.
@@ -316,7 +327,9 @@ func (r *Runner) StartService(serviceName string, svc spec.Service, networkPodma
 		}
 		args = append(args, "-v", arg)
 	}
-	args = append(args, svc.Image)
+	// Insert "--" so a service Command starting with a hyphenated token
+	// (e.g. "--config /etc/x") is parsed as container argv, not as a podman run flag.
+	args = append(args, svc.Image, "--")
 	args = append(args, svc.Command...)
 	cmd := r.podman(args...)
 	out, err := cmd.CombinedOutput()
@@ -411,6 +424,8 @@ func httpGetCode(rawURL string, insecure bool) (int, error) {
 // This matches Docker Compose: health checks run from container start; start_period only affects
 // when failures count toward "unhealthy", not when probes begin.
 // pollInterval is the delay between attempts; zero defaults to 500ms.
+// Fast-fails when the container reaches a terminal state (exited, dead) so a crash-looping
+// service is reported within a poll interval instead of after the full totalTimeout.
 func WaitExecHealth(container string, argv []string, pollInterval, totalTimeout time.Duration) error {
 	if len(argv) == 0 {
 		return fmt.Errorf("exec health: empty command")
@@ -431,6 +446,9 @@ func WaitExecHealth(container string, argv []string, pollInterval, totalTimeout 
 		} else {
 			lastErr = err
 		}
+		if isTerminalContainerState(container) {
+			break
+		}
 		time.Sleep(pollInterval)
 	}
 	if lastErr == nil {
@@ -439,6 +457,17 @@ func WaitExecHealth(container string, argv []string, pollInterval, totalTimeout 
 	st := inspectContainerBrief(container)
 	suffix := execHealthFailureSuffix(container, st)
 	return fmt.Errorf("exec health failed: %w\ncontainer %q: %s%s", lastErr, container, st, suffix)
+}
+
+// isTerminalContainerState reports whether the container is in a state that will not
+// recover without orchestrator intervention (exited or dead).
+func isTerminalContainerState(name string) bool {
+	out, err := exec.Command("podman", "inspect", "-f", "{{.State.Status}}", name).Output()
+	if err != nil {
+		return false
+	}
+	status := strings.ToLower(strings.TrimSpace(string(out)))
+	return status == "exited" || status == "dead"
 }
 
 func podmanExecCombined(container string, argv []string) ([]byte, error) {

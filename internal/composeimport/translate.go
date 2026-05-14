@@ -248,14 +248,17 @@ func translateService(composeDir string, f *composefile.File, name string, cs co
 
 	var health *spec.HealthCheck
 	if cs.Healthcheck != nil && len(cs.Healthcheck.Test) > 0 {
-		health = &spec.HealthCheck{
-			Exec: &spec.ExecHealth{
-				Command: append([]string(nil), cs.Healthcheck.Test...),
-			},
-			Interval:    cs.Healthcheck.Interval,
-			Timeout:     cs.Healthcheck.Timeout,
-			Retries:     cs.Healthcheck.Retries,
-			StartPeriod: cs.Healthcheck.StartPeriod,
+		argv := normalizeHealthcheckTest(cs.Healthcheck.Test)
+		if len(argv) > 0 {
+			health = &spec.HealthCheck{
+				Exec: &spec.ExecHealth{
+					Command: argv,
+				},
+				Interval:    cs.Healthcheck.Interval,
+				Timeout:     cs.Healthcheck.Timeout,
+				Retries:     cs.Healthcheck.Retries,
+				StartPeriod: cs.Healthcheck.StartPeriod,
+			}
 		}
 	}
 
@@ -272,6 +275,7 @@ func translateService(composeDir string, f *composefile.File, name string, cs co
 	}
 
 	ports := append([]string(nil), cs.Ports...)
+	expose := append([]string(nil), cs.Expose...)
 	vols := append([]string(nil), cs.Volumes...)
 	cmd := append([]string(nil), cs.Command...)
 
@@ -280,6 +284,7 @@ func translateService(composeDir string, f *composefile.File, name string, cs co
 		Image:       img,
 		DependsOn:   deps,
 		Ports:       ports,
+		Expose:      expose,
 		Volumes:     vols,
 		Environment: env,
 		EnvFile:     envFile,
@@ -296,6 +301,33 @@ func translateService(composeDir string, f *composefile.File, name string, cs co
 		return spec.Service{}, err
 	}
 	return svc, nil
+}
+
+// normalizeHealthcheckTest strips Compose's leading directive token from a healthcheck.test
+// array so the resulting argv can be handed to `podman exec` directly.
+//
+//   - CMD <argv...>           → <argv...>
+//   - CMD-SHELL <string...>   → ["sh", "-c", strings.Join(rest, " ")]
+//   - NONE                    → nil (caller emits no Health probe)
+//   - anything else           → returned as-is (already a bare argv)
+func normalizeHealthcheckTest(test []string) []string {
+	if len(test) == 0 {
+		return nil
+	}
+	switch strings.ToUpper(strings.TrimSpace(test[0])) {
+	case "NONE":
+		return nil
+	case "CMD":
+		return append([]string(nil), test[1:]...)
+	case "CMD-SHELL":
+		rest := strings.TrimSpace(strings.Join(test[1:], " "))
+		if rest == "" {
+			return nil
+		}
+		return []string{"sh", "-c", rest}
+	default:
+		return append([]string(nil), test...)
+	}
 }
 
 func isBindMountSource(src string) bool {
