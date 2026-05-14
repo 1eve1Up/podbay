@@ -1,6 +1,6 @@
 # License compliance tooling only (ScanCode + policy validation). Not Podbay runtime.
 license-expression>=30.4.4
-PyYAML>=6.0
+PyYAML>=6.0.3
 scancode-toolkit==32.5.0
 # Resolves libarchive via plugin (libarchive.so.13); install OS package libarchive13 on Debian/Ubuntu.
 extractcode-libarchive-system-provided==33.0.0
