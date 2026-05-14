@@ -10,7 +10,17 @@
 
 `v2026.5.1` is the second public May 2026 release. It is usable, but the `podbay.yaml` contract is not yet 1.0-stable.
 
-See https://github.com/1eve1Up/podbay/commit/897529338a222fe09e3177f24fcf1c92c4ed1f1e for more details.
+### Shipped scope (additions since `v2026.5.0`)
+
+- **Compose `include:` (v1 subset)** — local relative paths only; merged before `extends:` in `podbay import compose`. See [README](README.md) (Import from Compose) and `examples/compose-include/`.
+- **`podbay import compose --json`** — on failure, emits a versioned JSON envelope (`kind: import_compose`) with stable `issues[].code` values for compose read/parse, include graph errors, and unsupported include shapes; success path still emits YAML only. See [README](README.md) (`import compose --json`).
+- **`podbay validate` / `podbay deploy` partial by service name** — optional service arguments after `-f <contract>` or after `<contract-path>` (multi-arg form) select explicit targets within `--profile`; by default the effective set is **only** those services. **`--dependents`** adds the transitive downstream closure within the profile-active map. **`dependents:`** must list every **`depends_on`** child (inverse validation). `validate`/`deploy` **`--json`** may include `deploy_services` and, with **`--dependents`**, `dependents_expand`. **`podbay diff`**, **`podbay ps`**, and **`podbay explain`** use the same partial roots and **`--dependents`** for contract-vs-runtime views (default: full profile-active set); **`diff --json`** / **`ps --json`** / **`explain --json`** include `deploy_services` / `dependents_expand` when applicable. **Receipt pair** diff is unchanged (two decoded receipt files). See [README](README.md).
+- **Bidirectional `depends_on` / `dependents:`** — every child→parent edge appears on the parent's **`dependents`** list; validate rejects missing or stray entries. See [README](README.md).
+- **`podbay teardown` / `podbay down` partial selection** — optional service roots and **`--dependents`** match **`validate`** / **`deploy`**; partial teardown skips project network removal while labelled containers remain; **`--volumes`** is rejected with partial roots; **`teardown` / `down` `--json`** may include **`deploy_services`** and **`dependents_expand`**. See [README](README.md).
+- **`podbay logs --json`** — one versioned JSON document per invocation (`kind: logs`); captures non-streaming `podman logs` output in **`log_body`**. **`--json`** cannot be combined with **`--follow`**. See [README](README.md).
+- **Breaking (pre-GA):** the service-level YAML key **`dependencies`** was renamed to **`dependents`**; the old key is **not** loaded. **`podbay import compose`** emits **`dependents:`**. Validate issue codes use the **`dependents_*`** prefix (**`dependents_unknown_service`**, **`dependents_invalid_dependent`**, **`dependents_missing_inverse`**) instead of **`dependencies_*`**. Migrate contracts and any CI that asserted the old codes.
+
+Known limitations, non-goals, install/verify steps, and stability framing for `v2026.5.1` are unchanged from `v2026.5.0` unless called out above; see the `v2026.5.0` section below.
 
 ## v2026.5.0
 
@@ -89,13 +99,3 @@ Likely next release work:
 - first real Quadlet/systemd adapter slice
 - narrower, testable diagnostic improvements for `podbay explain`
 - release checksums, JSON Schema publication, and stronger provenance artifacts
-
-### Landed on `main` after `v2026.5.0` tag
-
-- **Compose `include:` (v1 subset)** — local relative paths only; merged before `extends:` in `podbay import compose`. See [README](README.md) (Import from Compose) and `examples/compose-include/`.
-- **`podbay import compose --json`** — on failure, emits a versioned JSON envelope (`kind: import_compose`) with stable `issues[].code` values for compose read/parse, include graph errors, and unsupported include shapes; success path still emits YAML only. See [README](README.md) (`import compose --json`).
-- **`podbay validate` / `podbay deploy` partial by service name** — optional service arguments after `-f <contract>` or after `<contract-path>` (multi-arg form) select explicit targets within `--profile`; by default the effective set is **only** those services. **`--dependents`** adds the transitive downstream closure within the profile-active map. **`dependents:`** must list every **`depends_on`** child (inverse validation). `validate`/`deploy` **`--json`** may include `deploy_services` and, with **`--dependents`**, `dependents_expand`. **`podbay diff`**, **`podbay ps`**, and **`podbay explain`** use the same partial roots and **`--dependents`** for contract-vs-runtime views (default: full profile-active set); **`diff --json`** / **`ps --json`** / **`explain --json`** include `deploy_services` / `dependents_expand` when applicable. **Receipt pair** diff is unchanged (two decoded receipt files). See [README](README.md).
-- **Bidirectional `depends_on` / `dependents:`** — every child→parent edge appears on the parent's **`dependents`** list; validate rejects missing or stray entries. See [README](README.md).
-- **`podbay teardown` / `podbay down` partial selection** — optional service roots and **`--dependents`** match **`validate`** / **`deploy`**; partial teardown skips project network removal while labelled containers remain; **`--volumes`** is rejected with partial roots; **`teardown` / `down` `--json`** may include **`deploy_services`** and **`dependents_expand`**. See [README](README.md).
-- **`podbay logs --json`** — one versioned JSON document per invocation (`kind: logs`); captures non-streaming `podman logs` output in **`log_body`**. **`--json`** cannot be combined with **`--follow`**. See [README](README.md).
-- **Breaking (pre-GA):** the service-level YAML key **`dependencies`** was renamed to **`dependents`**; the old key is **not** loaded. **`podbay import compose`** emits **`dependents:`**. Validate issue codes use the **`dependents_*`** prefix (**`dependents_unknown_service`**, **`dependents_invalid_dependent`**, **`dependents_missing_inverse`**) instead of **`dependencies_*`**. Migrate contracts and any CI that asserted the old codes.

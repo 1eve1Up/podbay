@@ -51,7 +51,7 @@ Use `./tools/run-license-compliance.sh --skip-scancode` to run only the policy u
 
 ## Stability Expectations
 
-Podbay uses calendar-based release versions. `v2026.5.0` is a public preview, not a 1.0 compatibility commitment.
+Podbay uses calendar-based release versions. `v2026.5.1` is a public preview, not a 1.0 compatibility commitment.
 
 Until a future `v2026.x-stable` or `v1.0` commitment:
 

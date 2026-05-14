@@ -30,13 +30,13 @@ Podbay is certainly not intended to be “a simpler Kubernetes.” Instead, it i
 
 ## Release and stability
 
-**Version:** `v2026.5.0`  
+**Version:** `v2026.5.1`  
 **Stability:** public preview  
 **Contract status:** evolving  
 **Receipt format:** versioned  
 **Production claim:** suitable for narrow Podman stacks, not a Kubernetes replacement.
 
-`v2026.5.0` is the first public May 2026 release. It is usable, but the `podbay.yaml` contract is not yet 1.0-stable.
+`v2026.5.1` is the current public May 2026 preview release (`v2026.5.0` was the first). It is usable, but the `podbay.yaml` contract is not yet 1.0-stable.
 
 See `RELEASES.md` for release notes, known limitations, non-goals, and migration guidance.
 
