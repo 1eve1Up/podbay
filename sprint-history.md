@@ -1,3 +1,5 @@
+# Sprint 21: Placeholder
+
 # Sprint 20: Partial lifecycle (teardown, down, logs alignment)
 
 2026-05-13
