@@ -1,6 +1,10 @@
 {
   "name": "Podbay",
   "image": "mcr.microsoft.com/devcontainers/python:3.12-bookworm",
+  "mounts": [
+    "source=${localWorkspaceFolder}/..,target=/workspaces/hframe-root,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/../.hframe,target=/workspaces/.hframe,type=bind,consistency=cached"
+  ],
   "features": {
     "ghcr.io/devcontainers/features/git:1": {
       "version": "latest"
