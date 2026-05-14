@@ -327,9 +327,10 @@ func (r *Runner) StartService(serviceName string, svc spec.Service, networkPodma
 		}
 		args = append(args, "-v", arg)
 	}
-	// Insert "--" so a service Command starting with a hyphenated token
-	// (e.g. "--config /etc/x") is parsed as container argv, not as a podman run flag.
-	args = append(args, svc.Image, "--")
+	// podman run's cobra setup stops flag parsing at the image positional, so a service
+	// command starting with a hyphen (e.g. "--config /etc/x") reaches the container as
+	// argv rather than being consumed as a podman flag. No "--" separator is required.
+	args = append(args, svc.Image)
 	args = append(args, svc.Command...)
 	cmd := r.podman(args...)
 	out, err := cmd.CombinedOutput()
