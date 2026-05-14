@@ -1,5 +1,17 @@
 # Podbay Releases
 
+## v2026.5.1
+
+**Date:** May 2026  
+**Stability:** public preview  
+**Contract status:** evolving  
+**Receipt format:** versioned  
+**Production claim:** suitable for narrow Podman stacks, not a Kubernetes replacement.
+
+`v2026.5.1` is the second public May 2026 release. It is usable, but the `podbay.yaml` contract is not yet 1.0-stable.
+
+See https://github.com/1eve1Up/podbay/commit/897529338a222fe09e3177f24fcf1c92c4ed1f1e for more details.
+
 ## v2026.5.0
 
 **Date:** May 2026  
