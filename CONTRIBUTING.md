@@ -47,7 +47,6 @@ Use `./tools/run-license-compliance.sh --skip-scancode` to run only the policy u
 2. Keep changes small and focused.
 3. Add or update tests when behavior changes.
 4. Update docs when user-facing behavior, CLI flags, contract fields, or receipt fields change.
-5. Run the verification command before opening a pull request.
 
 ## Stability Expectations
 
