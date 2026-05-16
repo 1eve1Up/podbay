@@ -1,3 +1,47 @@
+# Sprint 22: Machine-readable success for `podbay import compose` (`--json`)
+
+2026-05-16
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Carries from Sprint 21:** **`podbay logs --json`** shipped; **`podbay import compose --json`** still had **failure-only** JSON while success emitted raw YAML.
+
+---
+
+## Sprint goal
+
+Add a **documented success path** for **`podbay import compose --json`**: one versioned JSON document on stdout on success (`kind: import_compose`, `status: ok`, `contract_yaml`, `service_count`, optional `project` / `output_path`), with **`-o`** writing YAML before JSON.
+
+---
+
+### What happened
+
+We shipped **`FromImportComposeSuccess`**, additive **`Document`** fields, **`import compose`** success **`--json`** wiring (file write before JSON when **`-o`** is set), subprocess integration tests, and **README** / **PRD** / **RELEASES** updates on **`main`** (**194 insertions / 24 deletions** in commit **`7cddb16`**).
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-05-16 (UTC, sprint wrap)
+- **Scope**: **`import compose --json`** success matches other CLI JSON surfaces; Sprint 16 failure JSON unchanged.
+
+### 5 whys (why **`import compose`** success lagged other **`--json`** commands)
+
+1. **Why could agents not treat a successful import as a structured CLI outcome?** **`--json`** was **failure-only**; success emitted **raw YAML** on stdout.
+2. **Why leave it that way after Sprint 16?** Sprint 16 scoped **stable codes on failure** first; success needed an explicit **`contract_yaml`** / **`-o`** contract.
+3. **Why defer past later sprints?** **Partial deploy**, **observability**, **lifecycle**, and **`logs`** JSON reduced operator confusion before the **import** success gap bit automation.
+4. **Why does that ordering matter?** Without **`logs --json`**, claiming “JSON everywhere” would still fail at the **post-deploy** read path.
+5. **Root lesson:** **Define success and failure machine-readable shapes** for any command in the agent/CI gate—or document an explicit exception.
+
+### Actions
+
+- [x] Ship **`import compose --json`** success path and docs (**this sprint**).
+- [x] Run **`pinion retro`** and PB-1 bundle (**this sprint**).
+- [ ] Optional: dedupe **`--dependents`** help strings (cosmetic).
+- [ ] Optional: **`logs`** **`--json` + `--follow`** behind a written contract + tests.
+
+
 # Sprint 21: Machine-readable `podbay logs` (`--json`)
 
 2026-05-14
