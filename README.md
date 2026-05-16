@@ -222,9 +222,9 @@ podbay validate -f /tmp/podbay-from-include.yaml
 
 ### `import compose --json` (CI and agents)
 
-Pass **`--json`** to **`podbay import compose`** for a **machine-readable failure path** aligned with **`validate --json`** / **`diff --json`** (`format_version` **1**).
+Pass **`--json`** to **`podbay import compose`** for a **machine-readable path** aligned with **`validate --json`** / **`diff --json`** (`format_version` **1**).
 
-**Success:** **`--json` does not change success output**—emitted **`podbay.yaml`** still goes to stdout (no **`-o`**) or to **`-o` / `--output`**, identical to runs without **`--json`**.
+**Success:** Print **one JSON object** to **stdout** with **`kind`:** **`import_compose`**, **`status`:** **`ok`**, **`contract_path`** set to the **absolute path of the Compose file** you passed as the argument (for this kind the field names the Compose source, not a `podbay.yaml`), **`contract_yaml`** containing the full generated Podbay contract as a UTF-8 string, **`service_count`** (number of services in the contract), and **`project`** when the contract sets it. If **`-o` / `--output`** is set, the same YAML bytes are written to that file **first**, then **`output_path`** in the JSON is the absolute output path. Exit code **`0`**. No raw YAML is written to stdout when **`--json`** is set (only JSON).
 
 **Failure:** Print **one JSON object** to **stdout** with **`kind`:** **`import_compose`**, **`status`:** **`failed`**, **`contract_path`** set to the **absolute path of the compose file** you passed as the argument (for this kind the field names the Compose source, not a `podbay.yaml`), and **`issues`** with at least one fail-level row containing stable **`code`** and **`message`**. Exit code **`1`**.
 
@@ -252,7 +252,7 @@ podbay import compose /path/to/cyclic-root.yml --json
 | Command | Purpose |
 | --- | --- |
 | `podbay init` | Create a starter `podbay.yaml`. |
-| `podbay import compose <file>` | Convert a Compose file into a first-pass Podbay contract. Use **`--json`** for stable failure codes (stdout). |
+| `podbay import compose <file>` | Convert a Compose file into a first-pass Podbay contract. Use **`--json`** for versioned JSON on stdout (**success** or **failure**; stable **`issues[].code`** on failure). |
 | `podbay validate` | Load the contract and run preflight checks. Optional **service names** after the contract path (or after `-f`) select **explicit targets** within the `--profile` active set; by default the checked set is **exactly** those names (no automatic parent pull). Pass **`--dependents`** to include the **transitive closure** of profile-active services that **`depends_on`** any service already in the working set. **`dependents`** on a service **P** must list every profile-active child that **`depends_on` P**, and every **`dependents`** entry must **`depends_on`** its parent—validate fails if either direction is wrong. **`depends_on`** still defines startup order and, for edges **outside** the active set, **`podbay deploy`** **pre-waits** on existing containers without redeploying them. Use **`--json`** for CI/agents. |
 | `podbay deploy` | Same selection rules and **`--dependents`** flag as **`validate`**, then build/start that subset. Receipt lists deployed services only. |
 | `podbay receipt <file>` | Read and validate a deploy receipt. |

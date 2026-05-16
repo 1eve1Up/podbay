@@ -44,8 +44,9 @@ const (
 // KindTeardown uses containers_removed and volumes_removed when present;
 // other kinds leave them omitted.
 //
-// KindImportCompose is used for import compose --json failure envelopes only;
-// success imports still emit YAML to stdout or -o (contract_path names the Compose source file).
+// KindImportCompose is used for import compose --json (success and failure).
+// On success, contract_path is the Compose source file; contract_yaml holds the
+// generated Podbay contract when using --json. Non-JSON success still emits YAML only.
 //
 // KindLogs is used for logs --json (success or failure); success includes log_body.
 //
@@ -90,6 +91,12 @@ type Document struct {
 	LogsTail          int     `json:"tail,omitempty"`
 	LogsSince         string  `json:"since,omitempty"`
 	LogsBody          *string `json:"log_body,omitempty"`
+	// Import compose success (KindImportCompose, status ok): generated contract YAML as UTF-8 string.
+	ImportContractYAML string `json:"contract_yaml,omitempty"`
+	// ImportOutputPath is the absolute -o/--output path when set (file written in addition to stdout JSON).
+	ImportOutputPath string `json:"output_path,omitempty"`
+	// ImportServiceCount is len(services) in the generated contract.
+	ImportServiceCount int `json:"service_count,omitempty"`
 }
 
 // DiffServiceStatus is one expected service's runtime outcome inside a

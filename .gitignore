@@ -10,7 +10,7 @@ facter-bot.yaml
 /podbay
 tools/run-sprint-tests.sh
 scancode-license-report.json
-
+pinion/
 # Python tooling artifacts (tools/licensing/).
 __pycache__/
 *.pyc

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/1eve1Up/podbay/internal/composefile"
+	"github.com/1eve1Up/podbay/internal/spec"
 )
 
 func TestFromImportComposeError_usesImportFailure(t *testing.T) {
@@ -44,5 +45,41 @@ func TestFromImportComposeError_nilErr(t *testing.T) {
 	}
 	if m["issues"] != nil {
 		t.Fatalf("expected no issues key or empty: %s", string(raw))
+	}
+}
+
+func TestFromImportComposeSuccess_shape(t *testing.T) {
+	yamlBody := "version: \"1\"\nservices:\n  web:\n    image: nginx\n"
+	c := &spec.Contract{
+		Version:  "1",
+		Project:  "demo",
+		Services: map[string]spec.Service{"web": {Image: "nginx"}},
+	}
+	doc := FromImportComposeSuccess("/abs/compose.yml", []byte(yamlBody), c, "/out/podbay.yaml")
+	if doc.Kind != KindImportCompose || doc.Status != StatusOK {
+		t.Fatalf("doc=%+v", doc)
+	}
+	if doc.ContractPath == "" || doc.ImportContractYAML != yamlBody {
+		t.Fatalf("paths/body wrong: %+v", doc)
+	}
+	if doc.Project != "demo" || doc.ImportServiceCount != 1 {
+		t.Fatalf("project/count: %+v", doc)
+	}
+	if doc.ImportOutputPath == "" {
+		t.Fatal("expected output_path")
+	}
+	raw, err := json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	if m["issues"] != nil {
+		t.Fatalf("issues should be absent: %s", string(raw))
+	}
+	if m["contract_yaml"] != yamlBody {
+		t.Fatalf("contract_yaml=%v", m["contract_yaml"])
 	}
 }

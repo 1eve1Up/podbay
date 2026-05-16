@@ -25,7 +25,10 @@ Unsupported Compose features for import v1 return a clear error (for example top
 long-form port mappings, or build without an image tag).
 
 With --json: on failure print one versioned JSON document (format_version, kind import_compose) to stdout
-and exit 1; success behavior is unchanged (YAML still goes to stdout or -o).
+and exit 1. On success print one JSON document to stdout (kind import_compose, status ok, contract_yaml)
+and exit 0; if -o/--output is set, the same YAML bytes are written to that file before the JSON is printed.
+
+Without --json, success emits YAML to stdout or -o only.
 
 Examples:
   podbay import compose docker-compose.yml
@@ -71,28 +74,43 @@ Examples:
 				}
 				return fmt.Errorf("import compose: encode: %w", err)
 			}
-			if outPath == "" {
+
+			var outAbs string
+			if outPath != "" {
+				outAbs, err = filepath.Abs(outPath)
+				if err != nil {
+					if jsonOut {
+						emitImportJSONFail(err)
+					}
+					return fmt.Errorf("import compose: output path: %w", err)
+				}
+			}
+
+			if jsonOut {
+				if outAbs != "" {
+					if err := os.WriteFile(outAbs, raw, 0o644); err != nil {
+						emitImportJSONFail(err)
+					}
+				}
+				doc := clijson.FromImportComposeSuccess(absIn, raw, c, outAbs)
+				rawJSON, mErr := clijson.MarshalIndent(doc)
+				if mErr != nil {
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\n", mErr.Error())
+					os.Exit(1)
+				}
+				_, err = fmt.Fprintln(cmd.OutOrStdout(), strings.TrimSpace(string(rawJSON)))
+				return err
+			}
+
+			if outAbs == "" {
 				_, err = cmd.OutOrStdout().Write(raw)
 				return err
 			}
-			outAbs, err := filepath.Abs(outPath)
-			if err != nil {
-				if jsonOut {
-					emitImportJSONFail(err)
-				}
-				return fmt.Errorf("import compose: output path: %w", err)
-			}
-			if err := os.WriteFile(outAbs, raw, 0o644); err != nil {
-				if jsonOut {
-					emitImportJSONFail(err)
-				}
-				return fmt.Errorf("import compose: write %s: %w", outAbs, err)
-			}
-			return nil
+			return os.WriteFile(outAbs, raw, 0o644)
 		},
 	}
 	compose.Flags().StringVarP(&outPath, "output", "o", "", "write podbay contract to this file instead of stdout")
-	compose.Flags().BoolVar(&jsonOut, "json", false, "emit versioned JSON (format_version) on failure for agents and CI")
+	compose.Flags().BoolVar(&jsonOut, "json", false, "emit versioned JSON to stdout (success or failure) for agents and CI")
 
 	root := &cobra.Command{
 		Use:   "import",

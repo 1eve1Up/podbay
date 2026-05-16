@@ -173,3 +173,82 @@ func TestImportCompose_jsonIncludeUnsupportedURL_goRun(t *testing.T) {
 	}
 	runImportComposeJSONExpectCode(t, p, "import_include_unsupported")
 }
+
+func TestImportCompose_jsonSuccess_goRun(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "docker-compose.yml")
+	body := "services:\n  web:\n    image: nginx:alpine\n"
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	exe := exec.Command("go", "run", "./cmd/podbay", "import", "compose", "--json", p)
+	exe.Dir = modRoot()
+	var stdout bytes.Buffer
+	exe.Stdout = &stdout
+	exe.Stderr = io.Discard
+	err := exe.Run()
+	if err != nil {
+		t.Fatalf("want exit 0, err=%v stdout=%q", err, stdout.String())
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(stdout.String())), &m); err != nil {
+		t.Fatalf("json: %v\n%s", err, stdout.String())
+	}
+	if m["kind"] != "import_compose" || m["status"] != "ok" {
+		t.Fatalf("kind/status=%v/%v", m["kind"], m["status"])
+	}
+	if int(m["format_version"].(float64)) != 1 {
+		t.Fatalf("format_version=%v", m["format_version"])
+	}
+	cy, _ := m["contract_yaml"].(string)
+	if cy == "" || !strings.Contains(cy, "web") {
+		t.Fatalf("contract_yaml missing web: %q", cy)
+	}
+	if m["contract_path"] == "" {
+		t.Fatalf("contract_path empty")
+	}
+	if m["issues"] != nil {
+		t.Fatalf("unexpected issues: %v", m["issues"])
+	}
+	sc, ok := m["service_count"].(float64)
+	if !ok || int(sc) != 1 {
+		t.Fatalf("service_count=%v", m["service_count"])
+	}
+}
+
+func TestImportCompose_jsonSuccess_withOutput_goRun(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "docker-compose.yml")
+	out := filepath.Join(dir, "out.yaml")
+	body := "services:\n  web:\n    image: nginx:alpine\n"
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	exe := exec.Command("go", "run", "./cmd/podbay", "import", "compose", "--json", p, "-o", out)
+	exe.Dir = modRoot()
+	var stdout bytes.Buffer
+	exe.Stdout = &stdout
+	exe.Stderr = io.Discard
+	if err := exe.Run(); err != nil {
+		t.Fatalf("want exit 0, err=%v stdout=%q", err, stdout.String())
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(stdout.String())), &m); err != nil {
+		t.Fatalf("json: %v\n%s", err, stdout.String())
+	}
+	if m["status"] != "ok" {
+		t.Fatalf("status=%v", m["status"])
+	}
+	op, _ := m["output_path"].(string)
+	if op == "" {
+		t.Fatalf("output_path empty: %v", m)
+	}
+	disk, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cy, _ := m["contract_yaml"].(string)
+	if string(disk) != cy {
+		t.Fatalf("disk yaml differs from contract_yaml field")
+	}
+}
