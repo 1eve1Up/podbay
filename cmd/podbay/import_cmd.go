@@ -18,21 +18,23 @@ func importCmd() *cobra.Command {
 	jsonOut := false
 	compose := &cobra.Command{
 		Use:   "compose <file>",
-		Short: "Convert a Docker Compose file to podbay.yaml on stdout",
+		Short: "Convert a Docker Compose file to a Podbay contract (YAML or --json)",
 		Long: `Read a Compose file (e.g. docker-compose.yml, compose.yaml) and emit a Podbay contract.
 
 Unsupported Compose features for import v1 return a clear error (for example top-level networks,
 long-form port mappings, or build without an image tag).
 
-With --json: on failure print one versioned JSON document (format_version, kind import_compose) to stdout
-and exit 1. On success print one JSON document to stdout (kind import_compose, status ok, contract_yaml)
-and exit 0; if -o/--output is set, the same YAML bytes are written to that file before the JSON is printed.
+With --json, stdout is always exactly one JSON object (format_version 1, kind import_compose). Do not expect raw YAML on stdout in this mode.
+  • Success (exit 0): status ok, contract_yaml (full generated contract), service_count, optional project, optional output_path when -o/--output is set. If -o is set, the same YAML bytes are written to that file before the JSON line is printed.
+  • Failure (exit 1): status failed and issues[] with stable code values for agents and CI.
 
-Without --json, success emits YAML to stdout or -o only.
+Without --json, success writes generated podbay.yaml bytes to stdout or to -o only (human default).
 
 Examples:
   podbay import compose docker-compose.yml
-  podbay import compose compose.yaml -o podbay.yaml`,
+  podbay import compose compose.yaml -o podbay.yaml
+  podbay import compose docker-compose.yml --json
+  podbay import compose docker-compose.yml --json -o podbay.yaml`,
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -110,7 +112,7 @@ Examples:
 		},
 	}
 	compose.Flags().StringVarP(&outPath, "output", "o", "", "write podbay contract to this file instead of stdout")
-	compose.Flags().BoolVar(&jsonOut, "json", false, "emit versioned JSON to stdout (success or failure) for agents and CI")
+	compose.Flags().BoolVar(&jsonOut, "json", false, "stdout is one import_compose JSON document: success (status ok, contract_yaml, …) or failure (issues[]); exit 0 or 1. With -o, YAML is written to the file before JSON")
 
 	root := &cobra.Command{
 		Use:   "import",

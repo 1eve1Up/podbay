@@ -49,10 +49,15 @@ func TestImportCompose_helpMentionsJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"--json", "import_compose", "format_version"} {
+	for _, want := range []string{
+		"--json", "import_compose", "format_version", "contract_yaml", "status ok", "issues[]",
+	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("help missing %q\n%s", want, out)
 		}
+	}
+	if !strings.Contains(compose.Flags().Lookup("json").Usage, "import_compose") {
+		t.Errorf("--json flag usage should mention import_compose; got %q", compose.Flags().Lookup("json").Usage)
 	}
 }
 
