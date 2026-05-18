@@ -86,12 +86,12 @@ type Document struct {
 	ContainersRemoved []string `json:"containers_removed,omitempty"`
 	VolumesRemoved    []string `json:"volumes_removed,omitempty"`
 	// Logs-only (KindLogs): one-shot podman logs capture when using logs --json without --follow.
-	LogsService       string  `json:"service,omitempty"`
-	LogsContainerName string  `json:"container_name,omitempty"`
-	LogsTail          int     `json:"tail,omitempty"`
-	LogsSince         string  `json:"since,omitempty"`
-	LogsBody          *string     `json:"log_body,omitempty"`
-	LogEntries        []LogEntry  `json:"log_entries,omitempty"`
+	LogsService       string     `json:"service,omitempty"`
+	LogsContainerName string     `json:"container_name,omitempty"`
+	LogsTail          int        `json:"tail,omitempty"`
+	LogsSince         string     `json:"since,omitempty"`
+	LogsBody          *string    `json:"log_body,omitempty"`
+	LogEntries        []LogEntry `json:"log_entries,omitempty"`
 	// Import compose success (KindImportCompose, status ok): generated contract YAML as UTF-8 string.
 	ImportContractYAML string `json:"contract_yaml,omitempty"`
 	// ImportOutputPath is the absolute -o/--output path when set (file written in addition to stdout JSON).
