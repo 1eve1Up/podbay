@@ -1,3 +1,47 @@
+# Sprint 23: Partial-deploy log evidence (`logs` selection + batch `--json`)
+
+2026-05-18
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Carries from Sprint 22:** **`podbay import compose --json`** success shipped. **`validate`**, **`deploy`**, **`diff`**, **`ps`**, **`explain`**, and **`teardown` / `down`** already shared optional service roots and **`--dependents`**; **`podbay logs`** still required a **single** service name and could not return structured evidence for the same resolved set in one invocation.
+
+---
+
+## Sprint goal
+
+Close the last major gap in the **multi-agent partial-deploy loop**: **`podbay logs`** accepts the **same optional service roots and `--dependents`** as other contract commands, and **`logs --json`** returns **one versioned document** with log evidence for **every service in that resolved set** (`log_entries[]`), without N CLI calls or stderr scraping.
+
+---
+
+### What happened
+
+We shipped **`internal/logs`** (`ActiveServices`, human multi-service output, batch **`CaptureBytes`**), a refactored **`logsCmd`** using **`loadContractWithDeployServices`** and **`spec.ObservabilityActiveServices`**, **`clijson.FromLogsBatchSuccess`** / **`LogsFailurePartial`** with **`log_entries[]`** and additive **`deploy_services`** / **`dependents_expand`**, stable codes **`logs_resolve_error`** and **`logs_follow_multi_service`**, subprocess integration tests, **`examples/two-service/`** and **`examples/ci-partial-logs-demo.sh`**, and **README** / **PRD** / **RELEASES** (`v2026.5.2`) updates on **`main`** (**394 insertions / 76 deletions** across **12** files from **`8bff9bc`** through **`e316547`**; nine **`feature/PIN-2301`** … **`feature/PIN-2308`** merges).
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-05-18 (UTC, sprint wrap)
+- **Scope**: **`logs`** partial selection and batch **`--json`** complete the agent evidence path after partial deploy; single-service top-level **`service`** / **`log_body`** preserved when one target resolves.
+
+### 5 whys (why **`logs`** lagged partial selection and batch JSON)
+
+1. **Why could agents not collect post-deploy log evidence for a partial set in one step?** **`logs`** accepted only **one** service name and emitted **one** container’s text (or one **`log_body`**), while **`diff`** / **`explain`** already honored the same roots and **`--dependents`**.
+2. **Why was that left after Sprints 17–20?** Those sprints scoped **partial deploy**, **observability**, and **lifecycle** first; Sprint 21 added **single-service** **`logs --json`** without multi-target selection.
+3. **Why defer batch JSON until Sprint 23?** **`--json` + `--follow`** and multi-stream human tailing needed an explicit contract; one-shot batch capture could ship without streaming semantics.
+4. **Why does that ordering matter?** Without **`logs`** parity, the **partial-deploy agent loop** still broke at **evidence**—operators and CI had to guess service names or call **`logs`** repeatedly after **`deploy`** partial roots.
+5. **Root lesson:** Commands used as **evidence** in the agent loop must share the same **selection and JSON discipline** as gates—or document a deliberate exception. **`logs`** was the last exception.
+
+### Actions
+
+- [x] Ship **`logs`** partial roots, **`--dependents`**, and batch **`logs --json`** with docs (**this sprint**).
+- [x] Release **PIN-2301** … **PIN-2309** on **`main`** with per-target **`feature/PIN-###`** branches and **`go test ./...`** on transitions (**this sprint**).
+- [ ] Optional: dedupe **`--dependents`** help strings (cosmetic).
+- [ ] Optional: **`logs`** **`--json` + `--follow`** behind a written contract + tests.
+
 # Sprint 22: Machine-readable success for `podbay import compose` (`--json`)
 
 2026-05-16

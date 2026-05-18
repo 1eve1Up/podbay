@@ -17,6 +17,7 @@ import (
 	"github.com/1eve1Up/podbay/internal/deploy"
 	"github.com/1eve1Up/podbay/internal/diff"
 	"github.com/1eve1Up/podbay/internal/explain"
+	"github.com/1eve1Up/podbay/internal/logs"
 	"github.com/1eve1Up/podbay/internal/ps"
 	"github.com/1eve1Up/podbay/internal/receipt"
 	"github.com/1eve1Up/podbay/internal/runner"
@@ -619,22 +620,9 @@ func emitLogsJSON(cmd *cobra.Command, doc *clijson.Document) {
 	fmt.Fprintln(cmd.OutOrStdout(), strings.TrimSpace(string(raw)))
 }
 
-// logContractPathAndService: with --file, args must be exactly [service]. Otherwise [service] or [contract] [service].
-func logContractPathAndService(fileFlag string, args []string, defaultFile string) (contractPath, service string, err error) {
-	if fileFlag != "" {
-		if len(args) != 1 {
-			return "", "", fmt.Errorf("with --file / -f, pass exactly one argument: the service name")
-		}
-		return fileFlag, args[0], nil
-	}
-	switch len(args) {
-	case 1:
-		return defaultFile, args[0], nil
-	case 2:
-		return args[0], args[1], nil
-	default:
-		return "", "", fmt.Errorf("expected <service> or <contract-path> <service>")
-	}
+func emitLogsJSONFailure(cmd *cobra.Command, contractPath, project string, profiles, deployServices []string, dependents bool, service, code, msg string) {
+	emitLogsJSON(cmd, clijson.LogsFailurePartial(contractPath, project, profiles, deployServices, dependents, service, code, msg))
+	os.Exit(1)
 }
 
 func psCmd(fileFlag *string, defaultFile string) *cobra.Command {
@@ -703,104 +691,110 @@ func logsCmd(fileFlag *string, defaultFile string) *cobra.Command {
 	tailN := 0
 	since := ""
 	jsonOut := false
+	dependents := false
 	cmd := &cobra.Command{
-		Use:   "logs [podbay.yaml|directory] <service>",
-		Short: "Show logs for a service container (podman logs)",
-		Long: `Stream or print logs for the Podman container backing a single <service>.
+		Use:   "logs [podbay.yaml|directory] [service ...]",
+		Args:  cobra.ArbitraryArgs,
+		Short: "Show logs for service containers (podman logs)",
+		Long: `Print or stream logs for Podman containers backing resolved services.
 
-With one argument: <service> (contract path defaults to ./podbay.yaml).
-With two arguments: <contract-path-or-dir> then <service>.
-With --file / -f on this command: pass only the service name as the sole argument (the contract file comes from the root -f/--file flag).
+With -f / --file: optional trailing arguments are service names for partial logs (explicit targets only by default).
+Use --dependents to include the transitive closure of services that depend_on any explicit target, within the profile-active map.
+Without -f: use "logs path [service ...]" — same partial rules as validate, deploy, ps, and explain.
+With no service arguments after the contract path, all profile-active services are included.
 
-Use the same --profile flags as validate, deploy, ps, and teardown so <service> is evaluated against the same active profile slice (including after partial deploy).
+--follow streams logs for a single resolved service only (not with --json).
 
-This command always tails one container; multi-service aggregation is not implemented.
-
-Note: use --follow on this command to stream logs (the root -f/--file flag selects the contract file, not log follow).
-
-With --json: print one versioned JSON document (format_version, kind logs) on stdout. Cannot be used with --follow. Success includes captured log text in log_body (may be empty). Exit code 1 on any failure.
+With --json: print one versioned JSON document (format_version, kind logs) on stdout. Cannot be used with --follow.
+Success includes log_entries[] for each resolved service; when exactly one service is resolved, top-level service and log_body are also set.
 
 Exit codes:
   0  Logs printed or JSON success.
-  1  Contract load failure, service not active for profiles, podman unavailable, podman logs error, or --json with --follow.`,
-		Args:         cobra.RangeArgs(1, 2),
+  1  Contract load failure, resolution error, podman unavailable, podman logs error, --json with --follow, or --follow with multiple services.`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if jsonOut && follow {
-				emitLogsJSON(cmd, clijson.LogsFailure("", "", profiles, "", clijson.CodeLogsUsageJSONFollow, "logs: --json cannot be used with --follow"))
-				os.Exit(1)
+				emitLogsJSONFailure(cmd, "", "", profiles, nil, false, "", clijson.CodeLogsUsageJSONFollow, "logs: --json cannot be used with --follow")
 			}
-			if *fileFlag != "" && len(args) != 1 {
-				if jsonOut {
-					emitLogsJSON(cmd, clijson.LogsFailure("", "", profiles, "", clijson.CodeLogsUsageArgs, "with --file / -f, pass exactly one argument: the service name"))
-					os.Exit(1)
-				}
-				return fmt.Errorf("with --file / -f, pass exactly one argument: the service name")
-			}
-			if *fileFlag == "" && len(args) != 1 && len(args) != 2 {
-				if jsonOut {
-					emitLogsJSON(cmd, clijson.LogsFailure("", "", profiles, "", clijson.CodeLogsUsageArgs, "expected <service> or <contract-path> <service>"))
-					os.Exit(1)
-				}
-				return fmt.Errorf("expected <service> or <contract-path> <service>")
-			}
-			path, svc, err := logContractPathAndService(*fileFlag, args, defaultFile)
+			p, deployServices, err := contractPathAndDeployServices(*fileFlag, args, defaultFile)
 			if err != nil {
 				if jsonOut {
-					emitLogsJSON(cmd, clijson.LogsFailure("", "", profiles, "", clijson.CodeLogsUsageArgs, err.Error()))
-					os.Exit(1)
+					emitLogsJSONFailure(cmd, "", "", profiles, deployServices, dependents, "", clijson.CodeLogsUsageArgs, err.Error())
 				}
 				return err
 			}
-			c, contractPath, err := spec.Load(path)
+			c, path, err := spec.Load(p)
 			if err != nil {
-				if jsonOut {
-					failPath := contractPath
-					if failPath == "" {
-						failPath = path
-					}
-					pabs, _ := filepath.Abs(failPath)
-					emitLogsJSON(cmd, clijson.LogsFailure(pabs, "", profiles, "", clijson.CodeLogsLoadError, augmentContractLoadError(path, err).Error()))
-					os.Exit(1)
+				failPath := path
+				if failPath == "" {
+					failPath = p
 				}
-				return augmentContractLoadError(path, err)
+				pabs, _ := filepath.Abs(failPath)
+				loadErr := augmentContractLoadError(p, err)
+				if jsonOut {
+					emitLogsJSONFailure(cmd, pabs, "", profiles, deployServices, dependents, "", clijson.CodeLogsLoadError, loadErr.Error())
+				}
+				return loadErr
 			}
-			absContract, _ := filepath.Abs(contractPath)
-			proj := projectName(c, contractPath)
-			active := c.ServicesForProfiles(profiles)
-			if _, ok := active[svc]; !ok {
+			absContract, _ := filepath.Abs(path)
+			proj := projectName(c, path)
+			active, err := logs.ActiveServices(c, profiles, deployServices, dependents)
+			if err != nil {
+				msg := logs.ResolveErrorMessage(err)
 				if jsonOut {
-					emitLogsJSON(cmd, clijson.LogsFailure(absContract, proj, profiles, svc, clijson.CodeLogsServiceNotActive, fmt.Sprintf("service %q is not active for this profile set (check --profile and spelling)", svc)))
-					os.Exit(1)
+					emitLogsJSONFailure(cmd, absContract, proj, profiles, deployServices, dependents, "", clijson.CodeLogsResolveError, msg)
 				}
-				return fmt.Errorf("service %q is not active for this profile set (check --profile and spelling)", svc)
+				return err
+			}
+			if len(active) == 0 {
+				msg := "no services selected (check --profile and service names)"
+				if jsonOut {
+					emitLogsJSONFailure(cmd, absContract, proj, profiles, deployServices, dependents, "", clijson.CodeLogsResolveError, msg)
+				}
+				return fmt.Errorf("logs: %s", msg)
+			}
+			if follow && len(active) > 1 {
+				msg := fmt.Sprintf("logs: --follow supports only one service (resolved %d)", len(active))
+				code := clijson.CodeLogsFollowMulti
+				if jsonOut {
+					emitLogsJSONFailure(cmd, absContract, proj, profiles, deployServices, dependents, "", code, msg)
+				}
+				return fmt.Errorf("%s", msg)
 			}
 			if err := runner.EnsurePodman(); err != nil {
 				if jsonOut {
-					emitLogsJSON(cmd, clijson.LogsFailure(absContract, proj, profiles, svc, clijson.CodeLogsPodmanUnavailable, err.Error()))
-					os.Exit(1)
+					emitLogsJSONFailure(cmd, absContract, proj, profiles, deployServices, dependents, "", clijson.CodeLogsPodmanUnavailable, err.Error())
 				}
 				return err
 			}
-			r := runner.New(proj)
-			cname := r.ContainerName(svc)
 			if jsonOut {
-				out, err := runner.LogsBytes(cname, tailN, since)
+				captured, err := logs.CaptureBytes(proj, active, tailN, since)
 				if err != nil {
-					emitLogsJSON(cmd, clijson.LogsFailure(absContract, proj, profiles, svc, clijson.CodeLogsRuntimeError, err.Error()))
-					os.Exit(1)
+					emitLogsJSONFailure(cmd, absContract, proj, profiles, deployServices, dependents, "", clijson.CodeLogsRuntimeError, err.Error())
 				}
-				emitLogsJSON(cmd, clijson.FromLogsSuccess(absContract, proj, profiles, svc, cname, tailN, since, string(out)))
+				entries := make([]clijson.LogEntry, len(captured))
+				for i, e := range captured {
+					entries[i] = clijson.LogEntry{
+						Service:       e.Service,
+						ContainerName: e.Container,
+						LogBody:       e.Body,
+					}
+				}
+				emitLogsJSON(cmd, clijson.FromLogsBatchSuccess(absContract, proj, profiles, deployServices, dependents, tailN, since, entries))
 				return nil
 			}
-			return runner.Logs(cmd.OutOrStdout(), cname, follow, tailN, since)
+			if err := logs.PrintHuman(cmd.OutOrStdout(), proj, active, follow, tailN, since); err != nil {
+				return err
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringSliceVar(&profiles, "profile", nil, "enable services with this Compose-style profile (repeatable)")
-	cmd.Flags().BoolVar(&follow, "follow", false, "follow log output (podman logs -f)")
+	cmd.Flags().BoolVar(&follow, "follow", false, "follow log output (podman logs -f); single resolved service only")
 	cmd.Flags().IntVar(&tailN, "tail", 0, "only show the last N lines (0 means all lines)")
 	cmd.Flags().StringVar(&since, "since", "", "only show logs since timestamp (podman logs --since), e.g. 10m or 2024-01-01")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit versioned JSON (format_version, kind logs) for agents and CI")
+	cmd.Flags().BoolVar(&dependents, "dependents", false, "with partial service targets, include transitive dependents within the profile-active set")
 	return cmd
 }
 

@@ -1,0 +1,28 @@
+# Minimal two-service contract for partial deploy / logs demos.
+version: "1"
+project: twosvc
+
+requirements:
+  - type: command_exists
+    command: podman
+
+services:
+  web:
+    image: docker.io/library/nginx:alpine
+    ports:
+      - "8082:80"
+    health:
+      http:
+        url: http://127.0.0.1:8082/
+        timeout: 15s
+    dependents:
+      - worker
+  worker:
+    image: docker.io/library/alpine:latest
+    command: ["sleep", "infinity"]
+    depends_on:
+      web:
+        condition: service_started
+
+volumes: {}
+networks: {}

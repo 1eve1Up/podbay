@@ -69,7 +69,7 @@ Podbay gives agents:
 - **A preflight gate**: `podbay validate --json` before touching runtime.
 - **A deploy gate**: `podbay deploy --json --receipt ...` with structured success/failure.
 - **A drift gate**: `podbay diff --json` to prove runtime matches the contract.
-- **A log gate**: `podbay logs --json` for one-shot captured container logs (not combinable with `--follow`).
+- **A log gate**: `podbay logs --json` captures container logs for one or many resolved services in one document (`log_entries[]`; not combinable with `--follow`).
 - **A durable receipt**: a deploy artifact that can be compared later without asking the agent to narrate from memory.
 - **A shared language**: builder, reviewer, test, deploy, security, and ops agents can all reason over the same file and JSON envelopes.
 
@@ -136,6 +136,8 @@ podbay diff     -f examples/nginx --json
 podbay receipt  /tmp/podbay-nginx-receipt.json --json
 podbay down     -f examples/nginx --json
 podbay logs     -f examples/nginx --json web
+# partial deploy evidence (same roots as deploy/diff):
+# podbay logs -f examples/two-service web --json
 ```
 
 ## Minimal `podbay.yaml`
@@ -258,7 +260,7 @@ podbay import compose /path/to/cyclic-root.yml --json
 | `podbay receipt <file>` | Read and validate a deploy receipt. |
 | `podbay diff` | Compare contract vs Podman runtime, or compare two deploy receipts (two args that both decode as receipts). Optional service roots + **`--dependents`** match **`validate`** / **`deploy`**. |
 | `podbay ps` | Show resolved services and container state; same partial roots + **`--dependents`** as **`validate`**. |
-| `podbay logs <service>` | Show logs for **one** service container; use the same **`--profile`** flags as other commands. Does not aggregate multiple services. |
+| `podbay logs [service ...]` | Show logs for resolved service containers; optional partial roots and **`--dependents`** (same rules as **`validate`** / **`deploy`**). With no service names, uses the full profile-active set. **`--json`** returns **`log_entries[]`**; one resolved service also sets top-level **`service`** / **`log_body`**. **`--follow`** only when exactly one service resolves. |
 | `podbay explain` | Summarize expected vs actual runtime; same partial roots + **`--dependents`** as **`validate`**. Dependency JSON/text context appears when partial selection narrows to **one** service. |
 | `podbay teardown` / `podbay down` | Remove containers; optional **`--profile`**, optional **service roots** after the contract path (or after `-f`), and **`--dependents`** — same resolution rules as **`validate`** / **`deploy`**. With **no** service roots, removes **all** project-labeled containers (full teardown). **Partial** teardown removes only matching containers, skips project **network** removal while any labelled container remains, and **rejects `--volumes` / `-v`** (use a full teardown to remove named volumes). **`--json`** may include **`deploy_services`** and **`dependents_expand`** when partial roots apply. |
 | `podbay version` | Print build metadata and host-gateway behavior. |
@@ -463,7 +465,7 @@ Podbay is meant to fail closed in automation:
 - `deploy` exits non-zero on validation or runtime failure and does not write a partial receipt.
 - `diff` exits non-zero when drift is detected or comparison cannot complete.
 - `teardown` / `down` remove what they can and report structured issues in JSON; network removal warnings are non-fatal.
-- `logs --json` exits **0** on success (including an empty `log_body`) and **1** on contract/profile errors, Podman unavailability, `podman logs` failure, or **`--json` with `--follow`** (streaming JSON is not defined in this release).
+- `logs --json` exits **0** on success (including empty per-entry `log_body` values) and **1** on contract load/resolution errors, Podman unavailability, `podman logs` failure, **`--json` with `--follow`**, or **`--follow`** with multiple resolved services. Success may include **`log_entries[]`**, **`deploy_services`**, and **`dependents_expand`** when partial roots apply.
 
 Use `--json` when the caller is a script, CI job, or code agent.
 

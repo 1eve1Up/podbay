@@ -90,7 +90,8 @@ type Document struct {
 	LogsContainerName string  `json:"container_name,omitempty"`
 	LogsTail          int     `json:"tail,omitempty"`
 	LogsSince         string  `json:"since,omitempty"`
-	LogsBody          *string `json:"log_body,omitempty"`
+	LogsBody          *string     `json:"log_body,omitempty"`
+	LogEntries        []LogEntry  `json:"log_entries,omitempty"`
 	// Import compose success (KindImportCompose, status ok): generated contract YAML as UTF-8 string.
 	ImportContractYAML string `json:"contract_yaml,omitempty"`
 	// ImportOutputPath is the absolute -o/--output path when set (file written in addition to stdout JSON).
@@ -104,6 +105,13 @@ type Document struct {
 // strings (ok, missing, wrong_state, inspect_error). State, ExitCode, and
 // Error are populated when the runtime supplied them; they omit when zero
 // so the JSON stays compact for the common ok / missing cases.
+// LogEntry is one service's captured log output inside a KindLogs success document.
+type LogEntry struct {
+	Service       string `json:"service"`
+	ContainerName string `json:"container_name"`
+	LogBody       string `json:"log_body"`
+}
+
 type DiffServiceStatus struct {
 	Name          string `json:"name"`
 	ContainerName string `json:"container_name"`

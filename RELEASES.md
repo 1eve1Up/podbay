@@ -1,5 +1,17 @@
 # Podbay Releases
 
+## v2026.5.2
+
+**Date:** May 2026  
+**Stability:** public preview  
+**Contract status:** evolving  
+
+### Shipped scope (additions since `v2026.5.1`)
+
+- **`podbay logs` partial selection** — optional service roots and **`--dependents`** use the same resolution as **`diff`**, **`ps`**, **`explain`**, and **`teardown` / `down`** (via **`spec.ObservabilityActiveServices`**). With no service names, the profile-active set is used.
+- **`podbay logs --json` batch evidence** — one **`kind: logs`** document with **`log_entries[]`** (`service`, `container_name`, `log_body`) per resolved service. When exactly one service resolves, top-level **`service`** / **`log_body`** remain for backward compatibility. Additive **`deploy_services`** / **`dependents_expand`** when partial roots apply.
+- **Demo:** `examples/ci-partial-logs-demo.sh` and `examples/two-service/` for partial deploy + batch logs.
+
 ## v2026.5.1
 
 **Date:** May 2026  

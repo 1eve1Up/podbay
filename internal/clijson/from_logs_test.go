@@ -67,6 +67,46 @@ func TestLogsFailure_codes(t *testing.T) {
 	}
 }
 
+func TestFromLogsBatchSuccess_multiEntries(t *testing.T) {
+	entries := []LogEntry{
+		{Service: "web", ContainerName: "podbay_p_web", LogBody: "a"},
+		{Service: "api", ContainerName: "podbay_p_api", LogBody: "b"},
+	}
+	d := FromLogsBatchSuccess("/app/p.yaml", "p", nil, []string{"web"}, true, 0, "", entries)
+	raw, err := MarshalIndent(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	le, ok := m["log_entries"].([]any)
+	if !ok || len(le) != 2 {
+		t.Fatalf("log_entries: %+v", m["log_entries"])
+	}
+	if _, has := m["service"]; has {
+		t.Fatalf("multi-service should omit top-level service: %+v", m)
+	}
+	if m["deploy_services"] == nil {
+		t.Fatalf("deploy_services: %+v", m)
+	}
+	if m["dependents_expand"] != true {
+		t.Fatalf("dependents_expand: %+v", m["dependents_expand"])
+	}
+}
+
+func TestFromLogsBatchSuccess_singleBackwardCompat(t *testing.T) {
+	entries := []LogEntry{{Service: "web", ContainerName: "c", LogBody: "hi"}}
+	d := FromLogsBatchSuccess("/x.yaml", "demo", nil, nil, false, 0, "", entries)
+	if d.LogsService != "web" || d.LogsBody == nil || *d.LogsBody != "hi" {
+		t.Fatalf("top-level fields: %+v", d)
+	}
+	if len(d.LogEntries) != 1 {
+		t.Fatalf("log_entries len = %d", len(d.LogEntries))
+	}
+}
+
 func TestFromLogsSuccess_omitsZeroTail(t *testing.T) {
 	d := FromLogsSuccess("/x.yaml", "p", nil, "web", "c", 0, "", "")
 	raw, err := MarshalIndent(d)

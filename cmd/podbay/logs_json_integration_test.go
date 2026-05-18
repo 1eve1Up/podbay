@@ -111,8 +111,68 @@ func TestLogsJSON_goRun_serviceNotActive(t *testing.T) {
 	}
 	issues, _ := m["issues"].([]any)
 	im, _ := issues[0].(map[string]any)
-	if im["code"] != clijson.CodeLogsServiceNotActive {
+	if im["code"] != clijson.CodeLogsResolveError {
 		t.Fatalf("code=%v", im["code"])
+	}
+}
+
+func TestLogsJSON_goRun_unknownPartialRoot(t *testing.T) {
+	contract := filepath.Join("examples", "nginx")
+	out, code := runLogsJSON(t, "--json", contract, "not-a-service")
+	if code != 1 {
+		t.Fatalf("exit = %d out=%q", code, out)
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	issues, _ := m["issues"].([]any)
+	im, _ := issues[0].(map[string]any)
+	if im["code"] != clijson.CodeLogsResolveError {
+		t.Fatalf("code=%v", im["code"])
+	}
+}
+
+func TestLogsJSON_goRun_jsonFollowMultiService(t *testing.T) {
+	contract := filepath.Join("examples", "two-service")
+	out, code := runLogsJSON(t, "--json", "--follow", contract)
+	if code != 1 {
+		t.Fatalf("exit = %d out=%q", code, out)
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	issues, _ := m["issues"].([]any)
+	im, _ := issues[0].(map[string]any)
+	if im["code"] != clijson.CodeLogsFollowMulti && im["code"] != clijson.CodeLogsUsageJSONFollow {
+		t.Fatalf("code=%v", im["code"])
+	}
+}
+
+func TestLogsJSON_goRun_batchShapeTwoService(t *testing.T) {
+	if exec.Command("podman", "version").Run() != nil {
+		t.Skip("podman not on PATH")
+	}
+	contract := filepath.Join("examples", "two-service")
+	out, code := runLogsJSON(t, "--json", contract)
+	var m map[string]any
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("json: %v\n%s", err, out)
+	}
+	if code != 0 {
+		issues, _ := m["issues"].([]any)
+		if len(issues) > 0 {
+			im, _ := issues[0].(map[string]any)
+			if im["code"] == clijson.CodeLogsRuntimeError || im["code"] == clijson.CodeLogsPodmanUnavailable {
+				t.Skipf("runtime: %v", im["message"])
+			}
+		}
+		t.Fatalf("exit = %d payload=%+v", code, m)
+	}
+	le, ok := m["log_entries"].([]any)
+	if !ok || len(le) != 2 {
+		t.Fatalf("log_entries: %+v", m["log_entries"])
 	}
 }
 
