@@ -1,5 +1,16 @@
 # Podbay Releases
 
+## v2026.5.3
+
+**Date:** May 2026  
+**Stability:** public preview  
+**Contract status:** evolving  
+
+### Shipped scope (additions since `v2026.5.2`)
+
+- **`podbay deploy --json` health-gate failures** — structured `issues[]` with stable codes (`deploy_health_timeout`, `deploy_health_probe_failed`, `deploy_external_dep_unhealthy`) and per-issue **`service`**; non-health failures still use **`deploy_error`**. Success JSON unchanged.
+- **Demo:** `examples/ci-deploy-health-fail-demo.sh` and `examples/unhealthy-health/` for parseable deploy failure at a health gate.
+
 ## v2026.5.2
 
 **Date:** May 2026  

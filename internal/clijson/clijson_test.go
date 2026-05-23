@@ -68,7 +68,7 @@ func TestDeployFromValidateResults_kind(t *testing.T) {
 
 func TestDeployOutcome_failure(t *testing.T) {
 	d := DeployOutcome("/c/podbay.yaml", "x", []string{}, nil, "", errFake("boom"), false)
-	if d.Status != StatusFailed || len(d.Issues) != 1 || d.Issues[0].Code != "deploy_error" {
+	if d.Status != StatusFailed || len(d.Issues) != 1 || d.Issues[0].Code != CodeDeployError {
 		t.Fatalf("%+v", d)
 	}
 }

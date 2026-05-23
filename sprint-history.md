@@ -1,3 +1,40 @@
+# Sprint 24: Structured deploy health-gate failures (`deploy --json`)
+
+2026-05-22
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Carries from Sprint 23:** The **partial-deploy agent loop** was complete on success and evidence paths; **`podbay deploy --json`** still collapsed every runtime failure—including health-gate timeouts—into a single **`deploy_error`** issue.
+
+---
+
+## Sprint goal
+
+Make **`podbay deploy --json`** emit **structured, per-service health-gate failures** so agents and CI can branch on stable codes and service names when deploy fails after containers start but health never passes.
+
+---
+
+### What happened
+
+We shipped **`HealthGateFailure`** and **`health_wait`** refactor in **`internal/deploy`**, **`clijson`** deploy health issue codes (**`deploy_health_timeout`**, **`deploy_health_probe_failed`**, **`deploy_external_dep_unhealthy`**), **`deploy_json_integration_test.go`**, **`examples/unhealthy-health/`** and **`examples/ci-deploy-health-fail-demo.sh`**, and **README** / **PRD** / **RELEASES** (`v2026.5.3`) on **`main`** (**554 insertions / 54 deletions** across **15** files from **`3b22759`** through **`4e28afa`**; nine feature branch merges).
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-05-23 (UTC, sprint wrap)
+- **Scope**: **`deploy --json`** structured health-gate failures complete the agent deploy gate; preflight validate JSON and success deploy shapes unchanged.
+
+### 5 whys (why **`deploy --json`** health failures stayed unstructured after Sprint 23)
+
+1. **Why could agents not branch on deploy failure at a health gate?** **`deploy --json`** emitted one **`deploy_error`** issue with a human-oriented message string—no **`service`** or stable health code.
+2. **Why was that left after Sprint 23?** Sprint 23 closed the partial-deploy loop on **success and evidence** (`logs` batch JSON); structured health-gate failures were explicitly deferred from that sprint.
+3. **Why defer to Sprint 24?** Runtime health waits needed a typed failure path from **`waitServiceHealth`** without conflating with preflight **`DeployFromValidateResults`** validate issues.
+4. **Why does that ordering matter?** Without structured health failure, agents could **`logs`** / **`explain`** after deploy but still had to parse opaque strings to know **which service** failed and **why** (timeout vs probe).
+5. **Root lesson:** The **deploy gate** must expose structured runtime validation outcomes—the same JSON discipline as preflight **`validate`** and post-deploy **`logs`**—or the agent loop breaks on the most expensive failure path (containers started, health never passed).
+
 # Sprint 23: Partial-deploy log evidence (`logs` selection + batch `--json`)
 
 2026-05-18

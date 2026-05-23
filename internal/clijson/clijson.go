@@ -265,11 +265,7 @@ func DeployOutcome(contractPath, project string, profiles, deployServices []stri
 			Profiles:         profiles,
 			DeployServices:   ds,
 			DependentsExpand: depExpand,
-			Issues: []Issue{{
-				Level:   validate.LevelFail,
-				Code:    "deploy_error",
-				Message: deployErr.Error(),
-			}},
+			Issues:           IssuesFromDeployError(deployErr),
 		}
 	}
 	return &Document{

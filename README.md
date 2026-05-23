@@ -302,6 +302,23 @@ Podbay’s JSON output is designed for tools, agents, and CI. Versioned document
 - `issues[]`, with stable-ish codes, levels, messages, and optional service names
 - optional `deploy_services` on **`validate`** / **`deploy`** / **`diff`** / **`ps`** / **`explain`** / **`teardown` / `down`** JSON when you pass explicit service roots on the CLI; optional **`dependents_expand`** when partial roots are combined with **`--dependents`**
 
+**`deploy --json` health-gate failures** (runtime, after containers start) emit structured `issues[]` entries with a **`service`** field and stable codes:
+
+| Code | When |
+| --- | --- |
+| `deploy_health_timeout` | Health probe deadline exceeded for a service in the deploy set |
+| `deploy_health_probe_failed` | HTTP/exec probe failed before timeout |
+| `deploy_external_dep_unhealthy` | Partial deploy waited on an external dependency’s health and it failed |
+| `deploy_error` | Non-health failures (build, start, volume, unexpected errors) |
+
+Success **`deploy --json`** shape is unchanged (`status: ok`, `receipt_path`, partial-selection fields). Preflight validate failures before deploy still surface validate-style issues, not health-gate codes.
+
+Demo:
+
+```bash
+PODBAY_BIN=./podbay ./examples/ci-deploy-health-fail-demo.sh
+```
+
 Example CI gate:
 
 ```bash

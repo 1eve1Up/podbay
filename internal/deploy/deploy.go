@@ -302,7 +302,7 @@ func Deploy(c *spec.Contract, contractFile string, project string, opt Options) 
 			continue
 		}
 		if err := waitServiceHealth(out, opt.Quiet, name, cname, svc, opt.HealthTimeout); err != nil {
-			return fmt.Errorf("service %q: %w", name, err)
+			return err
 		}
 	}
 	if !opt.Quiet {
@@ -369,7 +369,13 @@ func waitExternalDependsOn(c *spec.Contract, r *runner.Runner, active map[string
 			return fmt.Errorf("partial deploy service %q: dependency %q is healthy but has no health probe in the contract", svcName, d.Service)
 		}
 		if err := waitServiceHealth(out, quiet, d.Service, cname, depDef, healthTimeout); err != nil {
-			return fmt.Errorf("partial deploy service %q: waiting for dependency %q: %w", svcName, d.Service, err)
+			if hg, ok := err.(*HealthGateFailure); ok {
+				out := *hg
+				out.ExternalDep = true
+				out.RequestedBy = svcName
+				return &out
+			}
+			return newExternalDepHealthFailure(svcName, d.Service, ProbeKind(probeKind(depDef)), err)
 		}
 	}
 	return nil
@@ -384,52 +390,6 @@ func needsHealthWait(active map[string]spec.Service, svcName string) bool {
 		}
 	}
 	return false
-}
-
-func waitServiceHealth(out io.Writer, quiet bool, service, container string, svc spec.Service, cliMax time.Duration) error {
-	h := svc.Health
-	start, interval, probe := healthTiming(svc, cliMax)
-	// Total wall clock for probes: start_period + retry window (Compose runs checks immediately;
-	// start_period only ignores failures toward marking unhealthy — we approximate with one deadline).
-	total := start + probe
-	if cliMax > 0 && total > cliMax {
-		total = cliMax
-	}
-	if total < 5*time.Second {
-		total = 5 * time.Second
-	}
-	if !quiet {
-		kind := probeKind(svc)
-		if kind != "" {
-			_, _ = fmt.Fprintf(out, "  Waiting for service %q health (%s), up to %v ...\n", service, kind, total)
-		}
-	}
-	var err error
-	if h.HTTP != nil && h.HTTP.URL != "" {
-		err = runner.WaitHTTPHealth(h.HTTP.URL, total, h.HTTP.Insecure, interval)
-	} else if h.Exec != nil && len(h.Exec.Command) > 0 {
-		err = runner.WaitExecHealth(container, h.Exec.Command, interval, total)
-	}
-	if err != nil {
-		return err
-	}
-	if !quiet {
-		_, _ = fmt.Fprintf(out, "  Service %q is healthy\n", service)
-	}
-	return nil
-}
-
-func probeKind(svc spec.Service) string {
-	if svc.Health == nil {
-		return ""
-	}
-	if svc.Health.HTTP != nil && strings.TrimSpace(svc.Health.HTTP.URL) != "" {
-		return "http"
-	}
-	if svc.Health.Exec != nil && len(svc.Health.Exec.Command) > 0 {
-		return "exec"
-	}
-	return ""
 }
 
 // healthTiming returns start_period, poll interval, and probe window (time allowed for checks after start_period).
