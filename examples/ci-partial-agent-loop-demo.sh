@@ -15,7 +15,7 @@ set -euo pipefail
 #
 # Failure path (branch on deploy --json issues[], not stderr):
 #   deploy --json (expect failed + deploy_health_probe_failed|deploy_health_timeout)
-#   → logs --json on failing service + --dependents → explain --json (same roots) → down --json
+#   → logs --json and explain --json on failing service (no --dependents if downstream never started) → down --json
 #
 # Usage: ci-partial-agent-loop-demo.sh [happy|fail]
 
@@ -78,10 +78,11 @@ run_fail() {
     | map(select(. != null and . != "")) | first // "sick"
   ')"
 
-  "$PODBAY" logs -f "$contract" "$fail_svc" --dependents --json | jq -e \
+  # Omit --dependents: downstream services may never have started after a health-gate failure.
+  "$PODBAY" logs -f "$contract" "$fail_svc" --json | jq -e \
     '.kind == "logs" and .status == "ok"'
 
-  "$PODBAY" explain -f "$contract" "$fail_svc" --dependents --json | jq -e \
+  "$PODBAY" explain -f "$contract" "$fail_svc" --json | jq -e \
     '.kind == "explain" and .status == "ok"'
 
   "$PODBAY" down -f "$contract" --json | jq -e \
