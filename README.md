@@ -30,13 +30,13 @@ Podbay is certainly not intended to be “a simpler Kubernetes.” Instead, it i
 
 ## Release and stability
 
-**Version:** `v2026.5.1`  
+**Version:** `v2026.6.0`  
 **Stability:** public preview  
 **Contract status:** evolving  
 **Receipt format:** versioned  
 **Production claim:** suitable for narrow Podman stacks, not a Kubernetes replacement.
 
-`v2026.5.1` is the current public May 2026 preview release (`v2026.5.0` was the first). It is usable, but the `podbay.yaml` contract is not yet 1.0-stable.
+`v2026.6.0` is the current public June 2026 preview release (`v2026.5.0` was the first). It is usable, but the `podbay.yaml` contract is not yet 1.0-stable.
 
 See `RELEASES.md` for release notes, known limitations, non-goals, and migration guidance.
 
@@ -74,6 +74,35 @@ Podbay gives agents:
 - **A shared language**: builder, reviewer, test, deploy, security, and ops agents can all reason over the same file and JSON envelopes.
 
 That is the core difference from ordinary Compose usage: **Podbay treats runtime intent as an artifact agents can be held accountable to.**
+
+### Partial-deploy agent loop
+
+For multi-service stacks, agents often deploy **one root** plus **`--dependents`**, then prove drift and collect evidence on the **same roots**—without re-parsing stderr when deploy fails at a health gate.
+
+| Step | Command | On failure |
+| --- | --- | --- |
+| Preflight | `podbay validate -f <contract> [roots...] --json` | Fix contract; do not deploy |
+| Deploy | `podbay deploy … --dependents --json --receipt …` | Parse `issues[].code` (see health table below) |
+| Drift | `podbay diff … --json` (same roots) | `drift == true` → inspect or redeploy |
+| Evidence | `podbay logs … --json` (same roots) | `log_entries[]` per resolved service |
+| Diagnose | `podbay explain … --json` (same roots) | Factual runtime/health context (not root cause) |
+| Cleanup | `podbay down … --json` (same roots or full project) | — |
+
+**Failure playbook** (after containers start but health never passes):
+
+1. Read **`deploy --json`** `issues[]` for `deploy_health_timeout`, `deploy_health_probe_failed`, or `deploy_external_dep_unhealthy`; use **`service`** on the issue.
+2. Run **`logs --json`** and **`explain --json`** with that service (and **`--dependents`** when downstream services are in the partial set).
+3. Tear down with **`down` / `teardown --json`** so the next attempt starts clean.
+
+Unified runnable demo (happy path + failure branch):
+
+```bash
+go build -o ./podbay ./cmd/podbay
+PODBAY_BIN=./podbay ./examples/ci-partial-agent-loop-demo.sh happy
+PODBAY_BIN=./podbay ./examples/ci-partial-agent-loop-demo.sh fail
+```
+
+Older focused demos remain useful: `ci-receipt-demo.sh`, `ci-partial-logs-demo.sh`, `ci-deploy-health-fail-demo.sh`.
 
 ## When to use Podbay
 
@@ -313,9 +342,11 @@ Podbay’s JSON output is designed for tools, agents, and CI. Versioned document
 
 Success **`deploy --json`** shape is unchanged (`status: ok`, `receipt_path`, partial-selection fields). Preflight validate failures before deploy still surface validate-style issues, not health-gate codes.
 
-Demo:
+Demos:
 
 ```bash
+PODBAY_BIN=./podbay ./examples/ci-partial-agent-loop-demo.sh happy
+PODBAY_BIN=./podbay ./examples/ci-partial-agent-loop-demo.sh fail
 PODBAY_BIN=./podbay ./examples/ci-deploy-health-fail-demo.sh
 ```
 

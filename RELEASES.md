@@ -1,5 +1,16 @@
 # Podbay Releases
 
+## v2026.6.0
+
+**Date:** June 2026  
+**Stability:** public preview  
+**Contract status:** evolving  
+
+### Shipped scope (additions since `v2026.5.3`)
+
+- **End-to-end partial-deploy agent loop** — **`examples/ci-partial-agent-loop-demo.sh`** runs **`happy`** (partial **`deploy`** with **`--dependents`**, then **`diff`**, **`logs`**, **`down`** on the same roots) and **`fail`** (structured **`deploy_health_*`** issues, then **`logs`** / **`explain`** / **`down`**). README documents the gate sequence and failure playbook. No new CLI JSON shapes.
+- **Demo:** `PODBAY_BIN=./podbay ./examples/ci-partial-agent-loop-demo.sh happy|fail` (skips when Podman is not on `PATH`).
+
 ## v2026.5.3
 
 **Date:** May 2026  

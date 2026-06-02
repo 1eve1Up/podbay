@@ -1,3 +1,40 @@
+# Sprint 25: End-to-end partial-deploy agent loop
+
+2026-06-02
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Carries from Sprint 24:** Every partial-deploy gate emitted versioned JSON, including structured **`deploy_health_*`** failures—but operators still stitched **`ci-receipt-demo.sh`**, **`ci-partial-logs-demo.sh`**, and **`ci-deploy-health-fail-demo.sh`** by hand.
+
+---
+
+## Sprint goal
+
+Ship one runnable recipe and docs that chain **validate → deploy → diff → logs → down** on shared partial roots, plus a **deploy_health_* → logs → explain → down** failure branch—without new CLI JSON shapes.
+
+---
+
+### What happened
+
+We shipped **`examples/ci-partial-agent-loop-demo.sh`** (`happy` / `fail`), **`agent_loop_demo_integration_test.go`**, and README / PRD / **RELEASES** (`v2026.6.0`) on **`main`** (**190 insertions / 1 deletion** across **5** files in **`f0b6ff3`**).
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-06-02 (UTC, sprint wrap)
+- **Scope**: Agent-loop orchestration and documentation; CLI JSON envelopes unchanged.
+
+### 5 whys (why three demos persisted after Sprint 24)
+
+1. **Why no single CI recipe?** Gates worked separately; nothing chained them on the same service roots or documented health-failure recovery.
+2. **Why after Sprint 24?** Structured deploy failures shipped first; full-loop polish was an explicit fork.
+3. **Why Sprint 25?** Orchestration only—no **`clijson`** changes—so safe once the deploy gate was done.
+4. **Why matter?** Adoption still required mental glue despite correct per-command JSON.
+5. **Root lesson:** **Composition is part of the contract** when every gate is machine-readable.
+
 # Sprint 24: Structured deploy health-gate failures (`deploy --json`)
 
 2026-05-22

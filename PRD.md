@@ -62,6 +62,7 @@ Not shipped in public preview through `v2026.5.1`:
 - **`podbay logs --json`:** one versioned JSON document per invocation (`kind: logs`); success includes captured **`log_body`** from a single non-follow **`podman logs`** run. **`--json`** cannot be combined with **`--follow`**. See [README](README.md) and [RELEASES](RELEASES.md).
 - **`podbay logs` partial selection and batch `--json`:** optional service roots and **`--dependents`** (same resolution as **`diff`** / **`deploy`**); **`logs --json`** success includes **`log_entries[]`** for all resolved services, with top-level **`service`** / **`log_body`** when exactly one service resolves. See [README](README.md) and [RELEASES](RELEASES.md).
 - **`podbay deploy --json` health-gate failures:** structured **`issues[]`** with stable codes **`deploy_health_timeout`**, **`deploy_health_probe_failed`**, **`deploy_external_dep_unhealthy`**, and per-issue **`service`**; non-health failures still use **`deploy_error`**. Success JSON unchanged. Agents can follow failed partial deploy with **`logs`** / **`explain`** on the same roots. See [README](README.md) and [RELEASES](RELEASES.md).
+- **End-to-end partial-deploy agent loop:** **`examples/ci-partial-agent-loop-demo.sh`** chains **`validate` → `deploy` → `diff` → `logs` → `down`** on shared partial roots (`happy` mode) and documents the **`deploy_health_*` → `logs` → `explain` → `down`** failure branch (`fail` mode). No new CLI JSON shapes. See [README](README.md) (Partial-deploy agent loop) and [RELEASES](RELEASES.md).
 
 ## 2. Problem Statement
 
