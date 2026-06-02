@@ -20,7 +20,10 @@ func runAgentLoopDemo(t *testing.T, mode string) {
 	if exec.Command("podman", "version").Run() != nil {
 		t.Skip("podman not on PATH")
 	}
-	root := modRoot()
+	root, err := filepath.Abs(modRoot())
+	if err != nil {
+		t.Fatal(err)
+	}
 	script := filepath.Join(root, "examples", "ci-partial-agent-loop-demo.sh")
 	if _, err := os.Stat(script); err != nil {
 		t.Fatal(err)
