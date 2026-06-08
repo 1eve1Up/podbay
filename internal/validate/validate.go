@@ -45,20 +45,13 @@ func Run(c *spec.Contract, contractPath string, profiles []string, deployRoots [
 	}
 
 	profileActive := c.ServicesForProfiles(profiles)
-	active := profileActive
-	if len(deployRoots) > 0 {
-		sub, err := spec.ServicesForDeployTargets(profileActive, deployRoots)
-		if err != nil {
-			out = append(out, Result{
-				OK: false, Level: "fail", Message: err.Error(),
-				Code: "deploy_service_selection",
-			})
-			return out
-		}
-		active = sub
-		if expandDependents {
-			active = spec.ExpandDependentsTransitive(profileActive, sub)
-		}
+	active, err := spec.ObservabilityActiveServices(profileActive, deployRoots, expandDependents)
+	if err != nil {
+		out = append(out, Result{
+			OK: false, Level: "fail", Message: err.Error(),
+			Code: "deploy_service_selection",
+		})
+		return out
 	}
 	if len(c.Services) > 0 && len(active) == 0 {
 		out = append(out, Result{OK: false, Level: "fail", Message: "No services selected for this profile set"})

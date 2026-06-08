@@ -469,11 +469,11 @@ func ServicesForDeployTargets(base map[string]Service, roots []string) (map[stri
 	return out, nil
 }
 
-// ObservabilityActiveServices returns the service map used for partial-aware diff, ps, explain,
-// and partial teardown/down: the same resolved set as validate.Run and deploy.Options. When roots
-// is empty (or only whitespace after ServicesForDeployTargets normalization), returns profileActive
-// unchanged; otherwise starts from ServicesForDeployTargets(profileActive, roots) and optionally
-// applies ExpandDependentsTransitive.
+// ObservabilityActiveServices is the single implementation of partial service selection for all
+// commands (validate, deploy, diff, ps, explain, logs, teardown/down). When roots is empty (or
+// only whitespace after ServicesForDeployTargets normalization), returns profileActive unchanged;
+// otherwise starts from ServicesForDeployTargets(profileActive, roots) and optionally applies
+// ExpandDependentsTransitive.
 func ObservabilityActiveServices(profileActive map[string]Service, roots []string, expandDependents bool) (map[string]Service, error) {
 	active := profileActive
 	if len(roots) == 0 {

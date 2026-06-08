@@ -1,3 +1,50 @@
+# Sprint 26: Split CLI god module + unify partial service selection
+
+2026-06-08
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Carries from Sprint 25:** The partial-deploy agent loop is documented end-to-end (`examples/ci-partial-agent-loop-demo.sh`), but **`cmd/podbay/main.go`** was still a **~1,062-line god module** and **`validate`** / **`deploy`** still inlined copy-pasted partial service resolution instead of calling **`spec.ObservabilityActiveServices`**.
+
+---
+
+## Sprint goal
+
+1. Split **`cmd/podbay/main.go`** by command group so agents and contributors can navigate one file per concern—without changing CLI behavior, flags, JSON envelopes, or exit codes.
+2. Unify partial service selection in **`internal/validate`** and **`internal/deploy`** on **`spec.ObservabilityActiveServices`** so validate → deploy → diff cannot drift on which services are in scope.
+
+---
+
+### What happened
+
+We split the god module into **seven command-group files** (`contract.go`, `init_cmd.go`, `receipt_cmd.go`, `validate.go`, `deploy.go`, `lifecycle.go`, `observability.go`) plus an **80-line** `main.go` (registration + `version` only), with a comment directing new commands to group files. **`internal/validate`** and **`internal/deploy`** now call **`spec.ObservabilityActiveServices`**; the spec doc comment states it is the single implementation for all commands. All existing integration tests passed unchanged on **`main`** (**1,077 insertions / 1,013 deletions** across **11** files in **`4c39f79`**; nine **`feature/PIN-2601`** … **`feature/PIN-2609`** merges).
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-06-08 (UTC, sprint wrap)
+- **Scope**: Mechanical CLI refactor and partial-selection consolidation; no CLI or JSON behavior changes.
+
+### 5 whys (why `main.go` stayed a god module after Sprint 25)
+
+1. **Why was agent navigation still painful?** Every CLI command, JSON emit helper, and contract loader lived in one file—high merge conflict and context-window cost for any single-command change.
+2. **Why one file?** Podbay grew command-by-command in `main.go` before `import_cmd.go` established the per-file pattern; observability and lifecycle helpers accumulated in place.
+3. **Why defer the split until Sprint 26?** Sprint 25 prioritized the partial-deploy **agent loop** (orchestration + docs); refactor-plan Finding 1 was explicitly queued behind gate completeness.
+4. **Why did validate/deploy duplicate partial selection?** Those packages predated **`ObservabilityActiveServices`**, which observability commands adopted first; the inline blocks looked “local” until the agent loop proved cross-gate drift risk.
+5. **Root lesson:** **File boundaries are part of the agent contract**—when JSON-stable gates share semantics, extract shared resolution **and** split the CLI surface in the same sprint window, or every feature sprint pays a navigation tax.
+
+### Actions
+
+- [x] Extract command-group files and slim `main.go` (**PIN-2601** … **PIN-2606**).
+- [x] Unify **`internal/validate`** and **`internal/deploy`** on **`spec.ObservabilityActiveServices`** (**PIN-2607**, **PIN-2608**).
+- [x] Exit bar: **`gofmt`**, **`go vet`**, **`go test ./...`**, **`pinion build`** green (**PIN-2609**).
+- [ ] **Finding 7b** — extract duplicated `expandService` to `internal/expand/service.go`.
+- [ ] **Finding 2** — split `internal/spec/spec.go` into types/graph/yaml files.
+- [ ] **`docs/architecture.md`** — package diagram and import-pipeline phases.
+
 # Sprint 25: End-to-end partial-deploy agent loop
 
 2026-06-02

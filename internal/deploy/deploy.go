@@ -85,18 +85,11 @@ func Deploy(c *spec.Contract, contractFile string, project string, opt Options) 
 	}
 
 	profileActive := c.ServicesForProfiles(opt.Profiles)
-	active := profileActive
-	partial := len(opt.DeployServices) > 0
-	if partial {
-		sub, err := spec.ServicesForDeployTargets(profileActive, opt.DeployServices)
-		if err != nil {
-			return err
-		}
-		active = sub
-		if opt.DeployDependents {
-			active = spec.ExpandDependentsTransitive(profileActive, sub)
-		}
+	active, err := spec.ObservabilityActiveServices(profileActive, opt.DeployServices, opt.DeployDependents)
+	if err != nil {
+		return err
 	}
+	partial := len(opt.DeployServices) > 0
 	if len(active) == 0 {
 		return fmt.Errorf("no services selected (check --profile and profiles: in the contract)")
 	}
