@@ -39,7 +39,7 @@ type Options struct {
 // Podbay defaults to 8.8.8.8 unless podman.disable_default_bridge_dns or podman.network_dns is set.
 func bridgeDNSForContract(c *spec.Contract, host map[string]string) []string {
 	if c.Podman != nil && len(c.Podman.NetworkDNS) > 0 {
-		return nonEmptyDNS(expandStrs(c.Podman.NetworkDNS, host))
+		return nonEmptyDNS(expand.ExpandStrings(c.Podman.NetworkDNS, host))
 	}
 	if c.Podman != nil && c.Podman.DisableDefaultBridgeDNS {
 		return nil
@@ -221,7 +221,7 @@ func Deploy(c *spec.Contract, contractFile string, project string, opt Options) 
 
 	for _, name := range order {
 		svc := active[name]
-		svc = expandService(svc, hostSubst)
+		svc = expand.ExpandService(svc, hostSubst)
 		if autoU {
 			svc.Volumes = applyPodmanNamedVolumeU(svc.Volumes, volMap)
 		}
@@ -339,7 +339,7 @@ func waitExternalDependsOn(c *spec.Contract, r *runner.Runner, active map[string
 		if !ok {
 			return fmt.Errorf("service %q: depends on unknown service %q", svcName, d.Service)
 		}
-		depDef = expandService(depDef, hostSubst)
+		depDef = expand.ExpandService(depDef, hostSubst)
 		cname := r.ContainerName(d.Service)
 		runOK, err := runner.ContainerIsRunning(cname)
 		if err != nil || !runOK {
@@ -435,42 +435,6 @@ func parseDur(s string, def time.Duration) time.Duration {
 	return d
 }
 
-func expandService(svc spec.Service, host map[string]string) spec.Service {
-	svc.Ports = expandStrs(svc.Ports, host)
-	svc.Volumes = expandStrs(svc.Volumes, host)
-	svc.AnsibleVaultPaths = expandStrs(svc.AnsibleVaultPaths, host)
-	svc.Environment = expandMap(svc.Environment, host)
-	svc.User = expand.String(svc.User, host)
-	svc.DNS = expandStrs(svc.DNS, host)
-	svc.ExtraHosts = spec.ExtraHostList(expandStrs([]string(svc.ExtraHosts), host))
-	if svc.Health != nil && svc.Health.HTTP != nil {
-		svc.Health.HTTP.URL = expand.String(svc.Health.HTTP.URL, host)
-	}
-	return svc
-}
-
-func expandStrs(in []string, m map[string]string) []string {
-	if len(in) == 0 {
-		return in
-	}
-	o := make([]string, len(in))
-	for i, s := range in {
-		o[i] = expand.String(s, m)
-	}
-	return o
-}
-
-func expandMap(in map[string]string, m map[string]string) map[string]string {
-	if len(in) == 0 {
-		return in
-	}
-	out := make(map[string]string, len(in))
-	for k, v := range in {
-		out[k] = expand.String(v, m)
-	}
-	return out
-}
-
 func containerEnv(contractDir string, svc spec.Service, host map[string]string) (map[string]string, error) {
 	refs := make([]expand.ServiceEnvFile, len(svc.EnvFile))
 	for i, e := range svc.EnvFile {
@@ -512,7 +476,7 @@ func ensureVolumes(r *runner.Runner, c *spec.Contract, active map[string]spec.Se
 		}
 	}
 	for svcName, svc := range active {
-		svc = expandService(svc, host)
+		svc = expand.ExpandService(svc, host)
 		for _, m := range svc.Volumes {
 			left, ok := volumeSourceName(m)
 			if !ok {

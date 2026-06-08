@@ -3,6 +3,7 @@ package deploy
 import (
 	"strings"
 
+	"github.com/1eve1Up/podbay/internal/expand"
 	"github.com/1eve1Up/podbay/internal/receipt"
 	"github.com/1eve1Up/podbay/internal/runner"
 	"github.com/1eve1Up/podbay/internal/runtimestate"
@@ -15,7 +16,7 @@ var inspectContainerForReceipt = runtimestate.InspectContainerForReceipt
 func buildReceiptServiceRecords(r *runner.Runner, order []string, active map[string]spec.Service, host map[string]string) ([]receipt.ServiceRecord, error) {
 	var out []receipt.ServiceRecord
 	for _, name := range order {
-		svc := expandService(active[name], host)
+		svc := expand.ExpandService(active[name], host)
 		cname := r.ContainerName(name)
 		cid, imgPodman, env, mounts, err := inspectContainerForReceipt(cname)
 		if err != nil {

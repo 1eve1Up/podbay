@@ -109,41 +109,6 @@ func writeServiceDetail(b *strings.Builder, st ServiceStatus) {
 	b.WriteString("\n")
 }
 
-func expandService(svc spec.Service, host map[string]string) spec.Service {
-	svc.Ports = expandStrs(svc.Ports, host)
-	svc.Volumes = expandStrs(svc.Volumes, host)
-	svc.Environment = expandMap(svc.Environment, host)
-	svc.User = expand.String(svc.User, host)
-	svc.DNS = expandStrs(svc.DNS, host)
-	svc.ExtraHosts = spec.ExtraHostList(expandStrs([]string(svc.ExtraHosts), host))
-	if svc.Health != nil && svc.Health.HTTP != nil {
-		svc.Health.HTTP.URL = expand.String(svc.Health.HTTP.URL, host)
-	}
-	return svc
-}
-
-func expandStrs(in []string, m map[string]string) []string {
-	if len(in) == 0 {
-		return in
-	}
-	o := make([]string, len(in))
-	for i, s := range in {
-		o[i] = expand.String(s, m)
-	}
-	return o
-}
-
-func expandMap(in map[string]string, m map[string]string) map[string]string {
-	if len(in) == 0 {
-		return in
-	}
-	out := make(map[string]string, len(in))
-	for k, v := range in {
-		out[k] = expand.String(v, m)
-	}
-	return out
-}
-
 func httpCode(url string, insecure bool) (int, error) {
 	args := []string{"-s", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "5"}
 	if insecure {

@@ -1,3 +1,51 @@
+# Sprint 27: Unify `expandService` on the agent loop
+
+2026-06-08
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Carries from Sprint 26:** The CLI god module is split (`main.go` is ~80 lines) and partial service **selection** is unified on **`spec.ObservabilityActiveServices`**, but host env **expansion** was still copy-pasted in **`internal/validate`**, **`internal/deploy`**, and **`internal/explain`**—deploy expanded **`AnsibleVaultPaths`**; validate and explain did not.
+
+---
+
+## Sprint goal
+
+Extract a single **`expand.ExpandService`** in **`internal/expand/service.go`** and replace all private **`expandService`** copies so **validate → deploy → explain** (and receipt/status call paths) apply the same host `${VAR}` substitution to service fields—without changing CLI flags, JSON envelopes, or exit codes.
+
+---
+
+### What happened
+
+We extracted **`expand.ExpandService`** and **`expand.ExpandStrings`** into **`internal/expand`**, added unit tests (including **`AnsibleVaultPaths`** regression coverage), and migrated **validate**, **deploy** (+ **receipt**), and **explain** (+ **status**) to the shared helper. **107** lines of private **`expandService`** / **`expandStrs`** / **`expandMap`** duplicates were deleted. All **`go test ./...`**, **`go vet ./...`**, and **`gofmt`** checks pass on **`main`** (**123 insertions / 114 deletions** across **7** files from **`676a4b7`** through **`d8850d4`**; six **`feature/PIN-2701`** … **`feature/PIN-2706`** merges; **`PIN-2707`** verification-only).
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-06-08 (UTC, sprint wrap)
+- **Scope**: Unify host env expansion on the validate → deploy → explain agent loop; no CLI or JSON behavior changes.
+
+### 5 whys (why `expandService` drifted after Sprint 26)
+
+1. **Why could validate pass while deploy used different expanded values?** Three private **`expandService`** copies applied host substitution with different field lists—deploy expanded **`AnsibleVaultPaths`**; validate and explain did not.
+2. **Why three copies?** **validate**, **deploy**, and **explain** each inlined expansion next to the checks or runtime actions that consume expanded service fields.
+3. **Why inlined instead of shared?** **`internal/expand`** already owned **`LoadHostSubst`** and **`String`**, but no **`Service`**-level helper existed when those gates were built.
+4. **Why defer until Sprint 27?** Sprint 26 closed partial **selection** drift; expansion looked package-local until refactor-plan Finding 7b flagged the same cross-gate risk class.
+5. **Root lesson:** **Expansion is part of the agent contract**—when multiple JSON-stable gates reason about the same **`spec.Service`** shape, host substitution must live in one place beside selection.
+
+### Actions
+
+- [x] Add **`internal/expand/service.go`** with **`ExpandService`** deploy superset (**PIN-2701**).
+- [x] Add **`internal/expand/service_test.go`** (**PIN-2702**).
+- [x] Migrate **validate**, **deploy** (+ **receipt**), **explain** (+ **status**) to **`expand.ExpandService`** (**PIN-2703** … **PIN-2705**).
+- [x] Remove private expand helpers; export **`expand.ExpandStrings`** for deploy network DNS (**PIN-2706**).
+- [x] Exit bar: **`gofmt`**, **`go vet`**, **`go test ./...`**, **`pinion build`** green (**PIN-2707**).
+- [ ] **Finding 2** — split **`internal/spec/spec.go`** into types/graph/yaml files.
+- [ ] **`docs/architecture.md`** — package diagram and import-pipeline phases.
+- [ ] **Finding 8** — move **`SplitVolumeMount`** out of **`internal/runner`**.
+
 # Sprint 26: Split CLI god module + unify partial service selection
 
 2026-06-08
@@ -41,7 +89,7 @@ We split the god module into **seven command-group files** (`contract.go`, `init
 - [x] Extract command-group files and slim `main.go` (**PIN-2601** … **PIN-2606**).
 - [x] Unify **`internal/validate`** and **`internal/deploy`** on **`spec.ObservabilityActiveServices`** (**PIN-2607**, **PIN-2608**).
 - [x] Exit bar: **`gofmt`**, **`go vet`**, **`go test ./...`**, **`pinion build`** green (**PIN-2609**).
-- [ ] **Finding 7b** — extract duplicated `expandService` to `internal/expand/service.go`.
+- [x] **Finding 7b** — extract duplicated `expandService` to `internal/expand/service.go` (Sprint 27).
 - [ ] **Finding 2** — split `internal/spec/spec.go` into types/graph/yaml files.
 - [ ] **`docs/architecture.md`** — package diagram and import-pipeline phases.
 

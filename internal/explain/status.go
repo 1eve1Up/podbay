@@ -3,6 +3,7 @@ package explain
 import (
 	"strings"
 
+	"github.com/1eve1Up/podbay/internal/expand"
 	"github.com/1eve1Up/podbay/internal/runner"
 	"github.com/1eve1Up/podbay/internal/runtimestate"
 	"github.com/1eve1Up/podbay/internal/spec"
@@ -29,7 +30,7 @@ type ServiceStatus struct {
 }
 
 func collectServiceStatus(r *runner.Runner, svcName string, svc spec.Service, hostSubst map[string]string) ServiceStatus {
-	svc = expandService(svc, hostSubst)
+	svc = expand.ExpandService(svc, hostSubst)
 	cname := r.ContainerName(svcName)
 	out := ServiceStatus{Name: svcName, Container: cname}
 
