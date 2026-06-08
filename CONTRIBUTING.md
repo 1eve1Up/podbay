@@ -52,6 +52,13 @@ Use `./tools/run-license-compliance.sh --skip-scancode` to run only the policy u
 
 Package boundaries and the import pipeline are documented in [docs/architecture.md](docs/architecture.md). Use [docs/contract-change-checklist.md](docs/contract-change-checklist.md) when changing contract fields or import behavior.
 
+| Doc | When to read |
+| --- | --- |
+| [docs/glossary.md](docs/glossary.md) | Terminology across CLI flags, JSON fields, and Go packages |
+| [docs/contract.md](docs/contract.md) | `podbay.yaml` schema, networks, profiles, Compose import |
+| [docs/cli-json.md](docs/cli-json.md) | `--json` envelopes, receipts, exit behavior |
+| [docs/agent-loop.md](docs/agent-loop.md) | Validate → deploy → diff automation and partial-deploy demos |
+
 ## Stability Expectations
 
 Podbay uses calendar-based release versions. `v2026.6.1` is the current public preview, not a 1.0 compatibility commitment.
