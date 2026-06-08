@@ -1,5 +1,18 @@
 # Podbay Releases
 
+## v2026.6.1
+
+**Date:** June 2026  
+**Stability:** public preview  
+**Contract status:** evolving  
+
+### Shipped scope (additions since `v2026.6.0`)
+
+The changes focus heavily on major structural improvements related to module splitting and service management. No specific new features or bug fixes were classified in this window. Current risk heuristics flag no known issues.
+
+- Sprint 27 wrap: Unified expandService across the agent loop.
+- Sprint 26 wrap: Split the CLI god module and unified partial service selection.
+
 ## v2026.6.0
 
 **Date:** June 2026  
