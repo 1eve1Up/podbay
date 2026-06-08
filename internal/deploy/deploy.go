@@ -14,6 +14,7 @@ import (
 	"github.com/1eve1Up/podbay/internal/receipt"
 	"github.com/1eve1Up/podbay/internal/runner"
 	"github.com/1eve1Up/podbay/internal/spec"
+	"github.com/1eve1Up/podbay/internal/volumemount"
 )
 
 // Options for Deploy.
@@ -515,7 +516,7 @@ func applyPodmanNamedVolumeU(mounts []string, volMap map[string]string) []string
 }
 
 func maybeAppendNamedVolumeU(m string, volMap map[string]string) string {
-	src, dest, opt := runner.SplitVolumeMount(m)
+	src, dest, opt := volumemount.SplitVolumeMount(m)
 	if strings.TrimSpace(opt) != "" {
 		return m
 	}
@@ -535,7 +536,7 @@ func maybeAppendNamedVolumeU(m string, volMap map[string]string) string {
 
 // volumeSourceName returns the mount source (left side), handling optional flags like :ro or :U.
 func volumeSourceName(m string) (string, bool) {
-	src, _, _ := runner.SplitVolumeMount(m)
+	src, _, _ := volumemount.SplitVolumeMount(m)
 	if src == "" {
 		return "", false
 	}

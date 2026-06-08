@@ -48,9 +48,13 @@ Use `./tools/run-license-compliance.sh --skip-scancode` to run only the policy u
 3. Add or update tests when behavior changes.
 4. Update docs when user-facing behavior, CLI flags, contract fields, or receipt fields change.
 
+## Architecture
+
+Package boundaries and the import pipeline are documented in [docs/architecture.md](docs/architecture.md). Use [docs/contract-change-checklist.md](docs/contract-change-checklist.md) when changing contract fields or import behavior.
+
 ## Stability Expectations
 
-Podbay uses calendar-based release versions. `v2026.5.1` is a public preview, not a 1.0 compatibility commitment.
+Podbay uses calendar-based release versions. `v2026.6.1` is the current public preview, not a 1.0 compatibility commitment.
 
 Until a future `v2026.x-stable` or `v1.0` commitment:
 

@@ -1,4 +1,5 @@
-// Package composeimport maps a parsed Docker Compose file into a Podbay spec contract.
+// Package composeimport translates composefile into spec and emits migration YAML.
+// translate.go is ingest → operational truth; emit.go is migration output; see docs/architecture.md.
 package composeimport
 
 import (
@@ -7,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/1eve1Up/podbay/internal/composefile"
-	"github.com/1eve1Up/podbay/internal/runner"
 	"github.com/1eve1Up/podbay/internal/spec"
+	"github.com/1eve1Up/podbay/internal/volumemount"
 )
 
 // ToContract converts a compose File into a podbay Contract (version 1).
@@ -42,7 +43,7 @@ func ToContract(f *composefile.File, composeDir string) (*spec.Contract, error) 
 			return nil, err
 		}
 		for _, v := range svc.Volumes {
-			src, dest, _ := runner.SplitVolumeMount(v)
+			src, dest, _ := volumemount.SplitVolumeMount(v)
 			if dest == "" {
 				continue
 			}

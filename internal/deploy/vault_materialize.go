@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/1eve1Up/podbay/internal/runner"
 	"github.com/1eve1Up/podbay/internal/spec"
 	"github.com/1eve1Up/podbay/internal/vault"
+	"github.com/1eve1Up/podbay/internal/volumemount"
 )
 
 // applyAnsibleVaultMounts replaces bind mount sources listed in svc.AnsibleVaultPaths with
@@ -40,7 +40,7 @@ func applyAnsibleVaultMounts(contractDir string, svc spec.Service) (_ spec.Servi
 	out := svc
 	out.Volumes = append([]string(nil), svc.Volumes...)
 	for i, m := range out.Volumes {
-		src, dest, opt := runner.SplitVolumeMount(m)
+		src, dest, opt := volumemount.SplitVolumeMount(m)
 		rs := resolvedBindSource(contractDir, src)
 		if rs == "" {
 			continue

@@ -24,9 +24,9 @@ Podbay fixes that.
 
 It is the system of record for how an application is supposed to exist at runtime—and whether that is actually true.
 
-## Implementation Status: v2026.5.1 Public Preview
+## Implementation Status: v2026.6.1 Public Preview
 
-`v2026.5.1` is the current public May 2026 preview release. It is usable for narrow Podman stacks, but the `podbay.yaml` contract is not yet 1.0-stable.
+`v2026.6.1` is the current public June 2026 preview release. It is usable for narrow Podman stacks, but the `podbay.yaml` contract is not yet 1.0-stable.
 
 Podbay uses calendar-based release versions. Calendar versions identify releases; they are not a substitute for compatibility promises. Until a future `v2026.x-stable` or `v1.0` commitment:
 
@@ -35,7 +35,7 @@ Podbay uses calendar-based release versions. Calendar versions identify releases
 - **CLI compatibility:** core commands are intended to stay scriptable, especially with `--json`, but flags and output details may still change during public preview.
 - **Migration policy:** release notes will call out breaking changes and provide migration guidance when contract, receipt, or CLI behavior changes.
 
-Shipped in public preview through `v2026.5.1`:
+Shipped in public preview through `v2026.6.1`:
 
 - Podman execution backend
 - preflight validation
@@ -45,7 +45,7 @@ Shipped in public preview through `v2026.5.1`:
 - versioned JSON output for automation
 - factual runtime inspection through `podbay explain`
 
-Not shipped in public preview through `v2026.5.1`:
+Not shipped in public preview through `v2026.6.1`:
 
 - Quadlet/systemd compilation
 - causal/root-cause diagnosis in `podbay explain`
@@ -189,7 +189,7 @@ Shipped today:
 
 - Podman
 
-Planned / not shipped in public preview through `v2026.5.1`:
+Planned / not shipped in public preview through `v2026.6.1`:
 
 - Quadlet / systemd
 
@@ -205,7 +205,7 @@ Shipped today: factual runtime inspection.
 - "What changed?"
 - "What is broken?"
 
-Planned / not shipped in public preview through `v2026.5.1`: causal diagnosis.
+Planned / not shipped in public preview through `v2026.6.1`: causal diagnosis.
 
 - "What should I do next?"
 
@@ -263,7 +263,7 @@ podbay deploy
 podbay explain
 ```
 
-Current `v2026.5.1` behavior: factual runtime state, health probes, dependency context, and unexpected containers. It does not infer root cause.
+Current `v2026.6.1` behavior: factual runtime state, health probes, dependency context, and unexpected containers. It does not infer root cause.
 
 Future diagnostic direction:
 

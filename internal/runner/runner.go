@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/1eve1Up/podbay/internal/spec"
+	"github.com/1eve1Up/podbay/internal/volumemount"
 )
 
 // Runner executes Podman commands for a project.
@@ -320,7 +321,7 @@ func (r *Runner) StartService(serviceName string, svc spec.Service, networkPodma
 	}
 	for _, v := range svc.Volumes {
 		exp := expandVolume(v, volMap)
-		src, dest, opt := splitVolume(exp)
+		src, dest, opt := volumemount.SplitVolumeMount(exp)
 		arg := src + ":" + dest
 		if opt != "" {
 			arg += ":" + opt

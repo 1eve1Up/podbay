@@ -1,4 +1,5 @@
-// Package composefile parses Docker Compose v3-shaped YAML into typed structs (import path).
+// Package composefile parses Docker Compose YAML for the import ingest phase only.
+// Runtime commands use spec, not composefile; see docs/architecture.md.
 package composefile
 
 import (

@@ -1,20 +1,12 @@
-package runner
+package volumemount
 
 import "strings"
 
 // SplitVolumeMount parses a `podman run -v` style string: src:dest[:opts].
-// See splitVolume for details.
 func SplitVolumeMount(s string) (src, dest, opt string) {
 	return splitVolume(s)
 }
 
-// splitVolume parses a -v argument into source, destination, and optional mount flags
-// (e.g. ro, rw, U). Supports Podman's :U (chown volume to the container user), which
-// Docker Desktop often makes unnecessary for the same image.
-//
-// Forms: src:dest, src:dest:ro, src:dest:U, src:dest:ro,U, etc.
-// If the segment after the last ":" is not a known option list, the whole string is
-// split once as src:dest (bind paths like ./foo:/bar).
 func splitVolume(s string) (src, dest, opt string) {
 	s = strings.TrimSpace(s)
 	if s == "" {

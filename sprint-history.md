@@ -1,3 +1,47 @@
+# Sprint 28: Architecture clarity + spec navigation + import layering
+
+2026-06-08
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Carries from Sprint 27:** Host env **expansion** is unified on **`expand.ExpandService`**. Partial **selection** was unified in Sprint 26 on **`spec.ObservabilityActiveServices`**. Deferred from Sprint 27: **`spec.go` split**, **`docs/architecture.md`**, and **`SplitVolumeMount`** decoupling.
+
+---
+
+## Sprint goal
+
+Document the import pipeline, split **`internal/spec/spec.go`**, extract **`internal/volumemount`**, and sync OSS version strings—no CLI or JSON behavior changes.
+
+---
+
+### What happened
+
+We shipped **`docs/architecture.md`**, **`docs/contract-change-checklist.md`**, synced **PRD / CONTRIBUTING / SECURITY** to **`v2026.6.1`**, split **`internal/spec`** into four focused files (**`spec.go`** is 3-line package doc), extracted **`internal/volumemount`**, and broke **`composeimport → runner`** coupling. All tests pass on **`main`** (**752 insertions / 736 deletions** across **25** file touches; twelve **`feature/PIN-2801`** … **`feature/PIN-2812`** merges).
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-06-08 (UTC, sprint wrap)
+- **Scope**: Architecture docs + spec navigation + import layering; no CLI or JSON behavior changes.
+
+### 5 whys (why the import pipeline stayed undocumented after Sprint 27)
+
+1. **Why did contributors think composefile, spec, and emit were accidental duplication?** The three layers were intentional but never documented in **`docs/`**.
+2. **Why no architecture doc sooner?** Sprints 26–27 prioritized agent-loop correctness; docs deferred while code drift was active.
+3. **Why did `spec.go` stay a monolith?** Types, YAML, graph, and profiles accumulated in one file as features landed.
+4. **Why did `composeimport` import `runner`?** **`SplitVolumeMount`** lived in the Podman adapter and was reused at import time for convenience.
+5. **Root lesson:** Document boundaries once the agent loop is stable—invest in architecture docs and package splits before the next feature sprint.
+
+### Actions
+
+- [x] **`docs/architecture.md`** + **`docs/contract-change-checklist.md`** (**PIN-2801** … **PIN-2802**).
+- [x] Version sync + **`internal/spec`** split + **`internal/volumemount`** (**PIN-2803** … **PIN-2810**).
+- [x] Package docs + exit bar (**PIN-2811** … **PIN-2812**).
+- [ ] **`docs/glossary.md`**, README split, deploy phase extraction (deferred).
+
 # Sprint 27: Unify `expandService` on the agent loop
 
 2026-06-08
