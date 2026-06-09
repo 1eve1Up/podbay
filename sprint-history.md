@@ -1,3 +1,49 @@
+# Sprint 29: Docs corpus + README split
+
+2026-06-08
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Carries from Sprint 28:** **`docs/architecture.md`** and **`docs/contract-change-checklist.md`** were referenced in **CONTRIBUTING** but not yet committed; **`docs/glossary.md`** and a **README split** were explicitly deferred. No CLI or JSON behavior changes were in scope.
+
+---
+
+## Sprint goal
+
+Move deep reference out of **README** into focused **`docs/`** pages (**`glossary`**, **`contract`**, **`cli-json`**, **`agent-loop`**, plus Sprint 28 architecture/checklist carry-over), slim **README** to pitch + quick start + a docs index, and rewire **PRD** / **CONTRIBUTING** / **RELEASES** links—no CLI flags, JSON envelopes, or exit code changes.
+
+---
+
+### What happened
+
+We slimmed **README** from **~513** lines to **179** (agent loop, contract reference, JSON tables, and “when to use” moved out; **Documentation** table + quick start retained). **PRD**, **CONTRIBUTING**, and **RELEASES** now point at **`docs/`** instead of README anchors. The six-file **`docs/`** corpus (**768** lines: **`architecture`**, **`contract-change-checklist`**, **`glossary`**, **`contract`**, **`cli-json`**, **`agent-loop`**) landed in follow-up commit **`c3b3ced`** the same day, completing links introduced in exit commit **`d29e15e`**. **`gofmt`**, **`go vet`**, **`go test ./...`**, and **`pinion build`** green on **`main`** (**36 insertions / 435 deletions** across **4** files in **`d29e15e`**; **`PIN-2910`** exit bar only—no Go tree changes this sprint).
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-06-08 (UTC, sprint wrap)
+- **Scope**: Documentation navigation and README split; no CLI or JSON behavior changes.
+
+### 5 whys (why README stayed a monolith after Sprint 28)
+
+1. **Why did agents and contributors still load a 500+ line README?** Pitch, quick start, contract reference, JSON envelopes, and the partial-deploy loop all lived in one file.
+2. **Why no split when Sprint 28 documented architecture?** Sprint 28 prioritized **`internal/spec`** / **`volumemount`** code splits; **`docs/architecture.md`** was linked from **CONTRIBUTING** before the file existed in git.
+3. **Why defer glossary and README split to Sprint 29?** Sprint 28 explicitly queued them behind the spec package refactor and import layering.
+4. **Why does that matter?** Duplicate prose across **README**, **PRD**, and **RELEASES** inflated context cost and drift risk whenever JSON or partial-selection semantics changed.
+5. **Root lesson:** Once package boundaries are stable, **navigation docs belong in focused files**—README should sell and onboard; deep reference belongs in **`docs/`** with one glossary and cross-links.
+
+### Actions
+
+- [x] **`docs/glossary.md`**, **`docs/contract.md`**, **`docs/cli-json.md`**, **`docs/agent-loop.md`** (**`c3b3ced`**).
+- [x] **`docs/architecture.md`**, **`docs/contract-change-checklist.md`** (Sprint 28 carry-over; **`c3b3ced`**).
+- [x] Slim **README** to **179** lines with docs index (**`d29e15e`**).
+- [x] Rewire **PRD** / **CONTRIBUTING** / **RELEASES** to **`docs/`** (**`d29e15e`**).
+- [x] Exit bar: **`gofmt`**, **`go vet`**, **`go test ./...`**, **`pinion build`** green (**PIN-2910**, **`d29e15e`**).
+- [ ] **`internal/deploy`** phase extraction (deferred from Sprint 28).
+
 # Sprint 28: Architecture clarity + spec navigation + import layering
 
 2026-06-08
@@ -16,7 +62,7 @@ Document the import pipeline, split **`internal/spec/spec.go`**, extract **`inte
 
 ### What happened
 
-We shipped **`docs/architecture.md`**, **`docs/contract-change-checklist.md`**, synced **PRD / CONTRIBUTING / SECURITY** to **`v2026.6.1`**, split **`internal/spec`** into four focused files (**`spec.go`** is 3-line package doc), extracted **`internal/volumemount`**, and broke **`composeimport → runner`** coupling. All tests pass on **`main`** (**752 insertions / 736 deletions** across **25** file touches; twelve **`feature/PIN-2801`** … **`feature/PIN-2812`** merges).
+We synced **PRD / CONTRIBUTING / SECURITY** to **`v2026.6.1`**, split **`internal/spec`** into four focused files (**`spec.go`** is 3-line package doc), extracted **`internal/volumemount`**, and broke **`composeimport → runner`** coupling. **`docs/architecture.md`** and **`docs/contract-change-checklist.md`** were wired in **CONTRIBUTING** here and committed in Sprint 29 (**`c3b3ced`**). All tests pass on **`main`** (**752 insertions / 736 deletions** across **25** file touches; twelve **`feature/PIN-2801`** … **`feature/PIN-2812`** merges).
 
 ---
 
@@ -37,10 +83,11 @@ We shipped **`docs/architecture.md`**, **`docs/contract-change-checklist.md`**, 
 
 ### Actions
 
-- [x] **`docs/architecture.md`** + **`docs/contract-change-checklist.md`** (**PIN-2801** … **PIN-2802**).
+- [x] Architecture + checklist doc content (**PIN-2801** … **PIN-2802**); **`docs/architecture.md`** / **`docs/contract-change-checklist.md`** committed Sprint 29 (**`c3b3ced`**).
 - [x] Version sync + **`internal/spec`** split + **`internal/volumemount`** (**PIN-2803** … **PIN-2810**).
 - [x] Package docs + exit bar (**PIN-2811** … **PIN-2812**).
-- [ ] **`docs/glossary.md`**, README split, deploy phase extraction (deferred).
+- [x] **`docs/glossary.md`**, README split (Sprint 29; **`d29e15e`** / **`c3b3ced`**).
+- [ ] **`internal/deploy`** phase extraction (deferred).
 
 # Sprint 27: Unify `expandService` on the agent loop
 
