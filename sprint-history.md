@@ -1,3 +1,48 @@
+# Sprint 31: Diff runtime efficiency
+
+2026-06-10
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Carries from Sprint 30:** Deploy phase extraction complete; diff N× inspect and no-op **`LoadHostSubst`** deferred from Sprints 28–30.
+
+---
+
+## Sprint goal
+
+Replace N per-service **`podman inspect`** subprocesses in **`podbay diff`** with a batched runtime snapshot, wire through **`internal/diff`**, document in **`docs/architecture.md`** — no CLI or JSON behavior changes.
+
+---
+
+### What happened
+
+We added **`ParseInspectMany`**, **`InspectContainers`**, and project ps helpers in **`internal/runtimestate`**, wired **`diff.ComputeWithContainerStates`**, removed no-op **`LoadHostSubst`**, and documented the diff subprocess model. All ten **`feature/PIN-3101`** … **`feature/PIN-3110`** merges on **`main`**; **`go test ./...`** green (**436 insertions / 51 deletions** across **10** files, **`1ad372b`** … **`ff4f0e1`**).
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-06-10 (UTC, sprint wrap)
+- **Scope**: Diff hot-path perf (refactor-plan §3); no CLI or JSON behavior changes.
+
+### 5 whys (why diff inspect batching stayed deferred through Sprint 30)
+
+1. **Why still open after deploy extraction?** Sprints 28–30 prioritized docs, spec split, and deploy phases first.
+2. **Why queue behind deploy?** Sprint 30 wanted named deploy phases before diff profiling targets existed.
+3. **Why no urgency on 2-service demos?** Subprocess savings invisible next to deploy/build; debt was O(N) architecture.
+4. **Why tolerate duplicate ps?** Extras already used one ps; per-service inspect in **`Compute`** was the dominant cost.
+5. **Root lesson:** Serial runtimestate API landings before diff wiring kept drift semantics stable.
+
+### Actions
+
+- [x] Batch inspect parsing + **`InspectContainers`** + merged ps/extras (**PIN-3101** … **PIN-3103**).
+- [x] **`ComputeWithContainerStates`** and **`ReportContractResult`** batch path (**PIN-3104**, **PIN-3105**).
+- [x] Tests, architecture doc, exit bar (**PIN-3106** … **PIN-3110**).
+- [ ] Cross-invocation env/contract cache (deferred).
+- [ ] ps/explain inspect batching (deferred).
+
 # Sprint 30: Deploy pipeline phase extraction
 
 2026-06-09
@@ -40,7 +85,7 @@ We split **`internal/deploy/deploy.go`** from **544** lines to a **55-line** orc
 - [x] **`deployContext`** + numbered phases (**PIN-3001** … **PIN-3007**).
 - [x] **`docs/architecture.md`** deploy pipeline subsection (**PIN-3008**).
 - [x] Integration tests + exit bar (**PIN-3009**, **PIN-3010**).
-- [ ] Diff inspect batching and **`LoadHostSubst`** cleanup (deferred).
+- [x] Diff inspect batching and **`LoadHostSubst`** cleanup (**Sprint 31**).
 
 # Sprint 29: Docs corpus + README split
 

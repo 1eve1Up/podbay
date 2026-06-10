@@ -126,6 +126,24 @@ Health gate waiting (`waitServiceHealth`) and structured health failures live in
 
 ---
 
+## Diff runtime (`internal/diff` + `internal/runtimestate`)
+
+`podbay diff` compares the contract's resolved service set to Podman. The drift gate uses **O(1) Podman list/inspect rounds** instead of one subprocess per expected service:
+
+| Step | Function | Subprocesses |
+| --- | --- | --- |
+| 1. Resolve services | `contractDiffNameSets` → `spec.ObservabilityActiveServices` | none |
+| 2. List project containers | `runtimestate.ProjectContainerNames` | one `podman ps -a --filter label=podbay.project=…` |
+| 3. Detect extras | `runtimestate.ExtraContainerNamesWithProjectList` | none (reuses step 2 names) |
+| 4. Inspect expected | `runtimestate.InspectContainers` | one `podman inspect` (batch); per-name fallback if a name is missing |
+| 5. Build result | `diff.ComputeWithContainerStates` → `Render` / JSON envelope | none |
+
+Diff does **not** call `expand.LoadHostSubst` — it never expands service fields for comparison; env validation remains on `podbay validate`.
+
+Shared snapshot helpers in `internal/runtimestate` (`ParseInspectMany`, `InspectContainers`, `ListProjectContainerStates`) are intended for reuse by ps/explain batching in future work.
+
+---
+
 ## Operational commands and `spec`
 
 | Command | Loads contract | Uses `ObservabilityActiveServices` | Uses `expand.ExpandService` |

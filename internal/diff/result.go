@@ -2,6 +2,7 @@ package diff
 
 import (
 	"github.com/1eve1Up/podbay/internal/runner"
+	"github.com/1eve1Up/podbay/internal/runtimestate"
 )
 
 // ServiceStatus is a per-service drift outcome on a DriftResult entry.
@@ -48,9 +49,7 @@ type DriftResult struct {
 }
 
 // Compute builds a DriftResult by inspecting each expected service and
-// recording extras. It is a structural mirror of Analyze and is not yet
-// wired into the diff CLI; will refactor Analyze to render text
-// from this result.
+// recording extras.
 //
 // extrasErr, when non-nil, short-circuits the computation and is returned
 // to the caller (mirrors Analyze semantics).
@@ -66,26 +65,10 @@ func Compute(r *runner.Runner, serviceNames []string, inspect InspectFunc, extra
 
 	for _, name := range serviceNames {
 		cname := r.ContainerName(name)
-		sd := ServiceDrift{Name: name, ContainerName: cname}
-
 		st, err := inspect(cname)
-		switch {
-		case err != nil:
-			sd.Status = StatusInspectError
-			sd.Error = err.Error()
+		sd := serviceDriftForContainer(name, cname, st, err)
+		if sd.Status != StatusOK {
 			res.Drift = true
-		case st == nil:
-			sd.Status = StatusMissing
-			res.Drift = true
-		case st.State != "running":
-			sd.Status = StatusWrongState
-			sd.State = st.State
-			sd.ExitCode = st.ExitCode
-			sd.Error = st.Error
-			res.Drift = true
-		default:
-			sd.Status = StatusOK
-			sd.State = st.State
 		}
 		res.Services = append(res.Services, sd)
 	}
@@ -94,4 +77,56 @@ func Compute(r *runner.Runner, serviceNames []string, inspect InspectFunc, extra
 		res.Drift = true
 	}
 	return res, nil
+}
+
+// ComputeWithContainerStates builds a DriftResult from a pre-fetched container
+// state map (for example runtimestate.InspectContainers). Names missing from
+// states are treated as missing containers.
+func ComputeWithContainerStates(r *runner.Runner, serviceNames []string, states map[string]*runtimestate.ContainerState, extras []string, extrasErr error) (DriftResult, error) {
+	if extrasErr != nil {
+		return DriftResult{}, extrasErr
+	}
+
+	res := DriftResult{Project: r.Project}
+	if len(extras) > 0 {
+		res.Extras = append(make([]string, 0, len(extras)), extras...)
+	}
+
+	for _, name := range serviceNames {
+		cname := r.ContainerName(name)
+		var st *runtimestate.ContainerState
+		if states != nil {
+			st = states[cname]
+		}
+		sd := serviceDriftForContainer(name, cname, st, nil)
+		if sd.Status != StatusOK {
+			res.Drift = true
+		}
+		res.Services = append(res.Services, sd)
+	}
+
+	if len(res.Extras) > 0 {
+		res.Drift = true
+	}
+	return res, nil
+}
+
+func serviceDriftForContainer(name, cname string, st *runtimestate.ContainerState, inspectErr error) ServiceDrift {
+	sd := ServiceDrift{Name: name, ContainerName: cname}
+	switch {
+	case inspectErr != nil:
+		sd.Status = StatusInspectError
+		sd.Error = inspectErr.Error()
+	case st == nil:
+		sd.Status = StatusMissing
+	case st.State != "running":
+		sd.Status = StatusWrongState
+		sd.State = st.State
+		sd.ExitCode = st.ExitCode
+		sd.Error = st.Error
+	default:
+		sd.Status = StatusOK
+		sd.State = st.State
+	}
+	return sd
 }

@@ -85,6 +85,53 @@ func TestAnalyze_inspectError(t *testing.T) {
 	}
 }
 
+func TestComputeWithContainerStates_batch(t *testing.T) {
+	r := runner.New("demo")
+	states := map[string]*runtimestate.ContainerState{
+		"podbay_demo_api": {State: "running"},
+	}
+	res, err := ComputeWithContainerStates(r, []string{"api", "worker"}, states, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Drift {
+		t.Fatal("expected drift for missing worker")
+	}
+	if len(res.Services) != 2 {
+		t.Fatalf("got %d services", len(res.Services))
+	}
+	if res.Services[0].Status != StatusOK || res.Services[1].Status != StatusMissing {
+		t.Fatalf("got %+v", res.Services)
+	}
+}
+
+func TestComputeWithContainerStates_exitedAndExtras(t *testing.T) {
+	r := runner.New("demo")
+	states := map[string]*runtimestate.ContainerState{
+		"podbay_demo_web": {State: "exited", ExitCode: 3, Error: "boom"},
+	}
+	res, err := ComputeWithContainerStates(r, []string{"web"}, states, []string{"podbay_demo_debug"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Drift {
+		t.Fatal("expected drift")
+	}
+	if res.Services[0].Status != StatusWrongState || res.Services[0].ExitCode != 3 {
+		t.Fatalf("got %+v", res.Services[0])
+	}
+	if len(res.Extras) != 1 || res.Extras[0] != "podbay_demo_debug" {
+		t.Fatalf("extras: %v", res.Extras)
+	}
+}
+
+func TestServiceDriftForContainer_inspectError(t *testing.T) {
+	sd := serviceDriftForContainer("api", "podbay_demo_api", nil, errors.New("inspect failed"))
+	if sd.Status != StatusInspectError || sd.Error != "inspect failed" {
+		t.Fatalf("got %+v", sd)
+	}
+}
+
 func TestAnalyze_extraListError(t *testing.T) {
 	r := runner.New("demo")
 	extrasErr := errors.New("ps failed")

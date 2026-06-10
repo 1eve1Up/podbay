@@ -2,10 +2,8 @@ package diff
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
-	"github.com/1eve1Up/podbay/internal/expand"
 	"github.com/1eve1Up/podbay/internal/runner"
 	"github.com/1eve1Up/podbay/internal/runtimestate"
 	"github.com/1eve1Up/podbay/internal/spec"
@@ -92,9 +90,6 @@ func ReportContractResult(c *spec.Contract, contractPath, project string, profil
 	if err := runner.EnsurePodman(); err != nil {
 		return DriftResult{}, err
 	}
-	if _, err := expand.LoadHostSubst(filepath.Dir(contractPath), c.HostEnvFiles); err != nil {
-		return DriftResult{}, err
-	}
 
 	names, extrasSeed, err := contractDiffNameSets(c, profiles, deployRoots, expandDependents)
 	if err != nil {
@@ -102,8 +97,21 @@ func ReportContractResult(c *spec.Contract, contractPath, project string, profil
 	}
 
 	r := runner.New(project)
-	extras, err := runtimestate.ExtraContainerNames(r, extrasSeed)
-	return Compute(r, names, runtimestate.InspectContainer, extras, err)
+	projectNames, err := runtimestate.ProjectContainerNames(r)
+	if err != nil {
+		return DriftResult{}, err
+	}
+	extras := runtimestate.ExtraContainerNamesWithProjectList(r, extrasSeed, projectNames)
+
+	containerNames := make([]string, len(names))
+	for i, name := range names {
+		containerNames[i] = r.ContainerName(name)
+	}
+	states, err := runtimestate.InspectContainers(containerNames)
+	if err != nil {
+		return DriftResult{}, err
+	}
+	return ComputeWithContainerStates(r, names, states, extras, nil)
 }
 
 // contractDiffNameSets returns sorted service names to inspect vs sorted names

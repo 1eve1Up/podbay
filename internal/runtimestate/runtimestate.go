@@ -3,7 +3,6 @@
 package runtimestate
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -22,6 +21,7 @@ type ContainerState struct {
 }
 
 type inspectOut []struct {
+	Name      string `json:"Name"`
 	Image     string `json:"Image"`
 	ImageName string `json:"ImageName"`
 	State     struct {
@@ -68,30 +68,9 @@ func InspectContainer(containerName string) (*ContainerState, error) {
 // ExtraContainerNames returns container names for the project label that are not
 // expected service containers (runner.ContainerName(service) for each service in serviceNames).
 func ExtraContainerNames(r *runner.Runner, serviceNames []string) ([]string, error) {
-	cmd := exec.Command("podman", "ps", "-a", "--filter", "label=podbay.project="+r.Project, "--format", "{{.Names}}")
-	out, err := cmd.Output()
+	projectNames, err := ProjectContainerNames(r)
 	if err != nil {
 		return nil, err
 	}
-	want := map[string]struct{}{}
-	for _, n := range serviceNames {
-		want[r.ContainerName(n)] = struct{}{}
-	}
-	var extra []string
-	for _, line := range strings.Split(string(bytes.TrimSpace(out)), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		for _, name := range strings.Split(line, ",") {
-			name = strings.TrimSpace(name)
-			if name == "" {
-				continue
-			}
-			if _, ok := want[name]; !ok {
-				extra = append(extra, name)
-			}
-		}
-	}
-	return extra, nil
+	return ExtraContainerNamesWithProjectList(r, serviceNames, projectNames), nil
 }
