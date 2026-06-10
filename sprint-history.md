@@ -1,3 +1,47 @@
+# Sprint 30: Deploy pipeline phase extraction
+
+2026-06-09
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Carries from Sprint 29:** Agent **`docs/`** corpus complete; **Finding 3** (deploy phase extraction) deferred from Sprints 28 and 29.
+
+---
+
+## Sprint goal
+
+Extract **`Deploy()`** into numbered phases (**networks → volumes → services → receipt**), slim **`deploy.go`** to a thin orchestrator, and document phases in **`docs/architecture.md`**—no CLI or JSON behavior changes.
+
+---
+
+### What happened
+
+We split **`internal/deploy/deploy.go`** from **544** lines to a **55-line** orchestrator plus **`deploy_context.go`**, **`networks.go`**, **`volumes.go`**, and **`services.go`**, with **`writeDeployReceipt`** in **`receipt.go`**. **`docs/architecture.md`** gained a deploy pipeline table. All ten **`feature/PIN-3001`** … **`feature/PIN-3010`** merges landed on **`main`**; **`go test ./...`**, **`go vet`**, and **`gofmt`** green (**629 insertions / 501 deletions** across **7** files, **`7bbbbf7`** … **`b8be56e`**).
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-06-10 (UTC, sprint wrap)
+- **Scope**: Deploy hot-path refactor (Finding 3); no CLI or JSON behavior changes.
+
+### 5 whys (why `Deploy()` stayed a monolith after Sprint 29)
+
+1. **Why still open after the docs sprint?** Sprints 28–29 deferred **Finding 3** while spec, import layering, and **`docs/`** shipped first.
+2. **Why defer when CLI/spec were split?** Docs had higher ROI with zero runtime risk; sibling files masked that **`Deploy()`** still inlined orchestration.
+3. **Why did that matter?** Agents profiling validate → deploy had to scan ~260 lines for one phase boundary.
+4. **Why two deferrals?** Mechanical refactor queued behind visible doc work twice—no JSON drift forced the issue.
+5. **Root lesson:** Split the deploy pipeline right after doc/navigation sprints, before perf work.
+
+### Actions
+
+- [x] **`deployContext`** + numbered phases (**PIN-3001** … **PIN-3007**).
+- [x] **`docs/architecture.md`** deploy pipeline subsection (**PIN-3008**).
+- [x] Integration tests + exit bar (**PIN-3009**, **PIN-3010**).
+- [ ] Diff inspect batching and **`LoadHostSubst`** cleanup (deferred).
+
 # Sprint 29: Docs corpus + README split
 
 2026-06-08
@@ -42,7 +86,7 @@ We slimmed **README** from **~513** lines to **179** (agent loop, contract refer
 - [x] Slim **README** to **179** lines with docs index (**`d29e15e`**).
 - [x] Rewire **PRD** / **CONTRIBUTING** / **RELEASES** to **`docs/`** (**`d29e15e`**).
 - [x] Exit bar: **`gofmt`**, **`go vet`**, **`go test ./...`**, **`pinion build`** green (**PIN-2910**, **`d29e15e`**).
-- [ ] **`internal/deploy`** phase extraction (deferred from Sprint 28).
+- [x] **`internal/deploy`** phase extraction (Sprint 30; **`7bbbbf7`** … **`b8be56e`**).
 
 # Sprint 28: Architecture clarity + spec navigation + import layering
 

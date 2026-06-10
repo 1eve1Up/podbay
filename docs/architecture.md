@@ -110,6 +110,22 @@ Partial-deploy demos: `examples/ci-partial-agent-loop-demo.sh`.
 
 ---
 
+## Deploy pipeline (`internal/deploy`)
+
+`deploy.Deploy()` applies the contract in numbered phases. Phase logic lives in focused files; `deploy.go` is a thin orchestrator.
+
+| Phase | Function | File |
+| --- | --- | --- |
+| 1. Setup | `newDeployContext` — Podman check, host env, active service set, progress logging | `deploy_context.go` |
+| 2. Networks | `prepareNetworks` — project bridge or multi-net ensure | `networks.go` |
+| 3. Volumes | `prepareVolumes` — logical volumes and mount validation | `volumes.go` |
+| 4. Services | `deployServicesInOrder` — topo-ordered build, vault mounts, start, health gates | `services.go` |
+| 5. Receipt | `writeDeployReceipt` — optional post-success deploy receipt | `receipt.go` |
+
+Health gate waiting (`waitServiceHealth`) and structured health failures live in `health_wait.go` and `health_gate_failure.go`. Ansible vault bind materialization lives in `vault_materialize.go`.
+
+---
+
 ## Operational commands and `spec`
 
 | Command | Loads contract | Uses `ObservabilityActiveServices` | Uses `expand.ExpandService` |
