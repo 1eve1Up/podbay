@@ -33,6 +33,15 @@ Partial deploy **pre-waits** on **`depends_on`** targets outside the active set 
 
 ---
 
+## Health probes
+
+| Term | Meaning |
+| --- | --- |
+| **`health.timeout`** | Contract per-try probe deadline for **deploy** health gates (may be longer during cold start / `start_period`). |
+| **Explain probe budget** | **`podbay explain`** runs **single-shot** HTTP/exec probes capped at **5s per probe** (shorter than deploy when contract timeout is large). See [agent-loop.md](agent-loop.md) failure playbook. |
+
+---
+
 ## Host expansion
 
 | Term | Meaning |

@@ -50,7 +50,8 @@ func collectServiceStatus(r *runner.Runner, svcName string, svc spec.Service, ho
 
 	if svc.Health != nil && svc.Health.HTTP != nil && svc.Health.HTTP.URL != "" {
 		out.HTTPURL = svc.Health.HTTP.URL
-		code, err := httpCode(svc.Health.HTTP.URL, svc.Health.HTTP.Insecure)
+		timeout := explainProbeTimeout(svc, true)
+		code, err := runner.HTTPProbeOnce(svc.Health.HTTP.URL, svc.Health.HTTP.Insecure, timeout)
 		out.HTTPStatus = code
 		if err != nil {
 			out.HTTPProbeErr = err.Error()
@@ -58,10 +59,15 @@ func collectServiceStatus(r *runner.Runner, svcName string, svc spec.Service, ho
 	}
 	if svc.Health != nil && svc.Health.Exec != nil && len(svc.Health.Exec.Command) > 0 {
 		out.ExecRan = true
-		bout, err := runner.ExecOnce(cname, svc.Health.Exec.Command)
-		out.ExecOutput = strings.TrimSpace(string(bout))
-		if err != nil {
-			out.ExecErr = err.Error()
+		if !out.Running {
+			out.ExecErr = "container not running"
+		} else {
+			timeout := explainProbeTimeout(svc, false)
+			bout, err := runner.ExecOnceWithTimeout(cname, svc.Health.Exec.Command, timeout)
+			out.ExecOutput = strings.TrimSpace(string(bout))
+			if err != nil {
+				out.ExecErr = err.Error()
+			}
 		}
 	}
 	return out

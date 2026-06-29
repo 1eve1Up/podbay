@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -405,21 +406,7 @@ func WaitHTTPHealth(url string, totalTimeout time.Duration, insecure bool, pollI
 }
 
 func httpGetCode(rawURL string, insecure bool) (int, error) {
-	args := []string{"-s", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "5"}
-	if insecure {
-		args = append(args, "-k")
-	}
-	args = append(args, rawURL)
-	cmd := exec.Command("curl", args...)
-	out, err := cmd.Output()
-	if err != nil {
-		return 0, err
-	}
-	code, err := strconv.Atoi(strings.TrimSpace(string(out)))
-	if err != nil {
-		return 0, err
-	}
-	return code, nil
+	return HTTPProbeOnce(rawURL, insecure, defaultHTTPProbeTimeout)
 }
 
 // WaitExecHealth runs podman exec until success or totalTimeout elapses (first attempt is immediate).
@@ -473,6 +460,10 @@ func isTerminalContainerState(name string) bool {
 }
 
 func podmanExecCombined(container string, argv []string) ([]byte, error) {
+	return podmanExecCombinedContext(context.Background(), container, argv)
+}
+
+func podmanExecCombinedContext(ctx context.Context, container string, argv []string) ([]byte, error) {
 	args := []string{"exec", container}
 	// Only insert "--" when the in-container command looks like a Podman flag; otherwise
 	// Podman 5.8+ may pass "--" through to crun as the executable (ENOENT on "--").
@@ -480,7 +471,7 @@ func podmanExecCombined(container string, argv []string) ([]byte, error) {
 		args = append(args, "--")
 	}
 	args = append(args, argv...)
-	cmd := exec.Command("podman", args...)
+	cmd := exec.CommandContext(ctx, "podman", args...)
 	return cmd.CombinedOutput()
 }
 

@@ -1,3 +1,49 @@
+# Sprint 32: Explain health probe timeouts
+
+2026-06-28
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Carries from Sprint 31:** Diff batch inspect complete; agent-loop failure path documented, but **`podbay explain`** could **hang indefinitely** on exec health probes (no wall-clock limit). Sprint 31 deferred ps/explain inspect batching and **`--no-probes` explain fast path**.
+
+---
+
+## Sprint goal
+
+Bound **`podbay explain`** health probes with a **single-shot 5s per-probe cap** so agents never wait on stuck exec or HTTP probes after a failed deploy health gate — no new CLI flags or **`explain --json`** envelope changes.
+
+---
+
+### What happened
+
+We added **`HTTPProbeOnce`**, **`ExecOnceWithTimeout`**, and **`explainProbeTimeout`** (**`ExplainProbeMax`**) in **`internal/runner`** and **`internal/explain`**, wired **`collectServiceStatus`**, added unit tests, and documented the probe budget in **`docs/agent-loop.md`** and **`docs/glossary.md`**. Seven **`feature/PIN-3201`** … **`feature/PIN-3207`** merges on **`main`**; **`go test ./...`** green (**250 insertions / 39 deletions** across **9** files, **`4ad4f54`** … **`22f69c4`**).
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-06-29 (UTC, sprint wrap)
+- **Scope**: Explain health probe timeouts; no CLI or JSON envelope changes.
+
+### 5 whys (why explain could hang after Sprint 31 agent-loop work)
+
+1. **Why could agents still stall on `explain`?** **`ExecOnce`** had no deadline; deploy used **`WaitExecHealth`** with bounded retries.
+2. **Why after structured deploy health JSON?** Failure playbook added **`logs`** / **`explain`** but explain probes were never bounded the same way.
+3. **Why exec over HTTP?** In-container commands without curl **`--max-time`** can block **`podman exec`** indefinitely.
+4. **Why cap at 5s vs contract `health.timeout`?** Proximate-network diagnostic budget differs from deploy cold-start / retry windows.
+5. **Root lesson:** Shared runner deadline helpers + explain-specific cap fix hangs without making explain a second gate.
+
+### Actions
+
+- [x] Runner probe helpers + tests (**PIN-3201** … **PIN-3203**).
+- [x] Explain wiring + **`explainProbeTimeout`** tests (**PIN-3204**, **PIN-3205**).
+- [x] Docs + exit bar (**PIN-3206**, **PIN-3207**).
+- [ ] Parallel explain probes (deferred).
+- [ ] ps/explain inspect batching (deferred).
+- [ ] **`--no-probes` explain fast path** (deferred).
+
 # Sprint 31: Diff runtime efficiency
 
 2026-06-10

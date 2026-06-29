@@ -2,7 +2,6 @@ package explain
 
 import (
 	"fmt"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -107,20 +106,4 @@ func writeServiceDetail(b *strings.Builder, st ServiceStatus) {
 		}
 	}
 	b.WriteString("\n")
-}
-
-func httpCode(url string, insecure bool) (int, error) {
-	args := []string{"-s", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "5"}
-	if insecure {
-		args = append(args, "-k")
-	}
-	args = append(args, url)
-	cmd := exec.Command("curl", args...)
-	out, err := cmd.Output()
-	if err != nil {
-		return 0, err
-	}
-	var code int
-	_, err = fmt.Sscanf(strings.TrimSpace(string(out)), "%d", &code)
-	return code, err
 }

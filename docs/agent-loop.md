@@ -61,7 +61,7 @@ For multi-service stacks, agents often deploy **one root** plus **`--dependents`
 After containers start but health never passes:
 
 1. Read **`deploy --json`** `issues[]` for `deploy_health_timeout`, `deploy_health_probe_failed`, or `deploy_external_dep_unhealthy`; use **`service`** on the issue.
-2. Run **`logs --json`** and **`explain --json`** with that service (and **`--dependents`** when downstream services are in the partial set).
+2. Run **`logs --json`** and **`explain --json`** with that service (and **`--dependents`** when downstream services are in the partial set). **`explain`** runs **single-shot** health probes capped at **5 seconds per probe** (proximate-network diagnostic budget)—not deploy’s `--health-timeout` retry window or full contract `health.timeout`.
 3. Tear down with **`down` / `teardown --json`** so the next attempt starts clean.
 
 ### Runnable demo
