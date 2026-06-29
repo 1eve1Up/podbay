@@ -1,5 +1,18 @@
 # Podbay Releases
 
+## v2026.6.2
+
+**Date:** June 2026  
+**Stability:** public preview  
+**Contract status:** evolving  
+
+### Shipped scope (additions since `v2026.6.1`)
+
+The majority of changes are improvements resulting from recent sprint wraps and internal cleanups:
+- Architecture & Pipelines: Implemented retrospective updates covering explain probe timeouts (Sprint 32), diff runtime efficiency (Sprint 31), and deployment pipeline phase extraction (Sprint 30).
+- Documentation/Structure: Significant updates were applied across documentation, including merging PR #7 for actions/checkout, splitting the docs corpus from README, and refining general architecture clarity.
+- Compliance & Testing: Actions/checkout was updated from version 6 to 7 in critical workflows (go.yml, license-compliance.yml).
+
 ## v2026.6.1
 
 **Date:** June 2026  
