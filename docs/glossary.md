@@ -12,10 +12,12 @@ Short definitions for terms used across CLI flags, JSON fields, Go packages, and
 | **`--dependents`** | CLI flag. When combined with service roots, expands the working set to the transitive downstream closure: every profile-active service that **`depends_on`** any service already in the set. |
 | **`deploy_services`** | JSON field on validate, deploy, diff, ps, explain, teardown when partial roots were passed. Lists the explicit service names from the CLI. |
 | **`dependents_expand`** | JSON field when partial roots were combined with **`--dependents`**. Indicates downstream expansion was applied. |
-| **Profile-active set** | Services that match the active **`--profile`** (or default profile rules). Partial selection always operates within this set. |
+| **Profile-active set** | Services that match the active **`--profile`** (or default profile rules) for **this CLI invocation**. Partial selection always operates within this set. |
 | **`ObservabilityActiveServices`** | Go helper in `internal/spec` — single implementation of partial service selection for validate, deploy, diff, ps, explain, logs, and teardown. |
 
 Without service roots, validate, deploy, diff, ps, and explain use the **full profile-active set** (teardown/down with no roots removes all project containers).
+
+**Profiles are not sticky:** `diff` / `ps` / `explain` / `logs` use only the `--profile` flags on that command. They do not recover profiles from a prior deploy or from container labels. Re-pass the same `--profile` set used at deploy, or profile-gated containers still running under the project label may be reported as unexpected. Details: [contract.md Profiles](contract.md#profiles).
 
 ---
 

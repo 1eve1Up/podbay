@@ -264,6 +264,30 @@ podbay validate -f examples/flowboard --profile observability
 podbay deploy   -f examples/flowboard --profile observability
 ```
 
+### Re-pass `--profile` on observability commands
+
+`--profile` is **call-time only**. Contract-mode `diff`, `ps`, `explain`, and `logs` do **not** remember which profiles were used at deploy, and containers are not labeled with profile names.
+
+Use the **same** `--profile` set on every command that should see those services:
+
+```bash
+podbay deploy  -f . --profile observability
+podbay diff    -f . --profile observability
+podbay ps      -f . --profile observability
+podbay explain -f . --profile observability
+```
+
+If you omit `--profile` after a profiled deploy, profile-gated containers still running under the project label are reported as **unexpected** / unknown (for example `podbay_<project>_prometheus` after `deploy --profile observability`). That is expected with the current CLI scope rules—not a sign that `profiles:` in `podbay.yaml` is invalid.
+
+Combine multiple profiles the same way as deploy:
+
+```bash
+podbay deploy  --profile crane --profile observability
+podbay diff    --profile crane --profile observability
+```
+
+Receipt-pair `diff` (`podbay diff before.json after.json`) compares receipt `profiles` fields and rejects `--profile`.
+
 ---
 
 ## Environment substitution
