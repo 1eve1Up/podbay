@@ -2,6 +2,8 @@ package runner
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -29,14 +31,26 @@ func TestExecOnceWithTimeout_rejectsEmptyCommand(t *testing.T) {
 }
 
 func TestExecOnceWithTimeout_timesOutQuickly(t *testing.T) {
-	if _, err := exec.LookPath("podman"); err != nil {
-		t.Skip("podman not on PATH")
+	if err := EnsurePodman(); err != nil {
+		t.Skip("podman not available:", err)
 	}
-	if _, err := exec.LookPath("sleep"); err != nil {
-		t.Skip("sleep not on PATH")
+	// Missing containers fail immediately (exit 125); a running container is required
+	// so sleep can outlive the probe deadline and exercise the timeout path.
+	name := fmt.Sprintf("podbay-probe-timeout-%d", os.Getpid())
+	_ = exec.Command("podman", "rm", "-f", name).Run()
+	out, err := exec.Command(
+		"podman", "run", "-d", "--name", name,
+		"docker.io/library/alpine:latest", "sleep", "300",
+	).CombinedOutput()
+	if err != nil {
+		t.Skipf("could not start probe container: %v (%s)", err, strings.TrimSpace(string(out)))
 	}
+	t.Cleanup(func() {
+		_ = exec.Command("podman", "rm", "-f", name).Run()
+	})
+
 	start := time.Now()
-	_, err := ExecOnceWithTimeout("unused-container", []string{"sleep", "30"}, 150*time.Millisecond)
+	_, err = ExecOnceWithTimeout(name, []string{"sleep", "30"}, 150*time.Millisecond)
 	elapsed := time.Since(start)
 	if err == nil {
 		t.Fatal("expected timeout error")
@@ -49,14 +63,14 @@ func TestExecOnceWithTimeout_timesOutQuickly(t *testing.T) {
 	}
 }
 
-func TestPodmanExecCombinedContext_timesOutWithoutPodman(t *testing.T) {
-	if _, err := exec.LookPath("sleep"); err != nil {
-		t.Skip("sleep not on PATH")
+func TestPodmanExecCombinedContext_failsQuicklyMissingContainer(t *testing.T) {
+	if err := EnsurePodman(); err != nil {
+		t.Skip("podman not available:", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	start := time.Now()
-	_, err := podmanExecCombinedContext(ctx, "unused", []string{"sleep", "30"})
+	_, err := podmanExecCombinedContext(ctx, "unused-container-missing", []string{"true"})
 	elapsed := time.Since(start)
 	if err == nil {
 		t.Fatal("expected error")
