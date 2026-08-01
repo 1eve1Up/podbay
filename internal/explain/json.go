@@ -115,9 +115,14 @@ func ReportJSON(c *spec.Contract, contractPath, project string, profiles []strin
 		focusOut = iterate[0]
 	}
 
+	states, err := inspectServiceContainers(r, iterate)
+	if err != nil {
+		return nil, err
+	}
 	svcs := make([]serviceJSON, 0, len(iterate))
 	for _, svcName := range iterate {
-		st := collectServiceStatus(r, svcName, profileActive[svcName], hostSubst)
+		cname := r.ContainerName(svcName)
+		st := collectServiceStatus(r, svcName, profileActive[svcName], hostSubst, states[cname], nil)
 		svcs = append(svcs, serviceStatusToJSON(st))
 	}
 

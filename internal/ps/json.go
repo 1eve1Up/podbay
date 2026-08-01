@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/1eve1Up/podbay/internal/runtimestate"
 	"github.com/1eve1Up/podbay/internal/spec"
 )
 
@@ -44,11 +45,25 @@ type psIssue struct {
 }
 
 // ReportJSON returns indented JSON for agents (same row set as ListRows).
+// Prefer ReportJSONWithContainerStates with runtimestate.InspectContainers for the runtime path.
 func ReportJSON(c *spec.Contract, contractPath, project string, profiles []string, deployRoots []string, expandDependents bool, inspect InspectFunc) ([]byte, error) {
 	rows, err := ListRows(c, project, profiles, deployRoots, expandDependents, inspect)
 	if err != nil {
 		return nil, err
 	}
+	return reportJSONFromRows(c, contractPath, project, profiles, deployRoots, expandDependents, rows)
+}
+
+// ReportJSONWithContainerStates returns indented JSON from a prefetched container state map.
+func ReportJSONWithContainerStates(c *spec.Contract, contractPath, project string, profiles []string, deployRoots []string, expandDependents bool, states map[string]*runtimestate.ContainerState) ([]byte, error) {
+	rows, err := ListRowsWithContainerStates(c, project, profiles, deployRoots, expandDependents, states)
+	if err != nil {
+		return nil, err
+	}
+	return reportJSONFromRows(c, contractPath, project, profiles, deployRoots, expandDependents, rows)
+}
+
+func reportJSONFromRows(c *spec.Contract, contractPath, project string, profiles []string, deployRoots []string, expandDependents bool, rows []Row) ([]byte, error) {
 	profileActive := c.ServicesForProfiles(profiles)
 	active, err := spec.ObservabilityActiveServices(profileActive, deployRoots, expandDependents)
 	if err != nil {

@@ -126,9 +126,13 @@ Health gate waiting (`waitServiceHealth`) and structured health failures live in
 
 ---
 
-## Diff runtime (`internal/diff` + `internal/runtimestate`)
+## Runtime snapshots (`internal/runtimestate`)
 
-`podbay diff` compares the contract's resolved service set to Podman. The drift gate uses **O(1) Podman list/inspect rounds** instead of one subprocess per expected service:
+`podbay diff`, `podbay ps`, and `podbay explain` share batched Podman introspection via `internal/runtimestate` (`ParseInspectMany`, `InspectContainers`, `ListProjectContainerStates`, project-ps helpers). Expected services use **O(1) list/inspect rounds** instead of one `podman inspect` per service (batch inspect falls back to per-name when a name is missing).
+
+### Diff (`internal/diff`)
+
+`podbay diff` compares the contract's resolved service set to Podman:
 
 | Step | Function | Subprocesses |
 | --- | --- | --- |
@@ -140,7 +144,22 @@ Health gate waiting (`waitServiceHealth`) and structured health failures live in
 
 Diff does **not** call `expand.LoadHostSubst` — it never expands service fields for comparison; env validation remains on `podbay validate`.
 
-Shared snapshot helpers in `internal/runtimestate` (`ParseInspectMany`, `InspectContainers`, `ListProjectContainerStates`) are intended for reuse by ps/explain batching in future work.
+### ps (`internal/ps`)
+
+| Step | Function | Subprocesses |
+| --- | --- | --- |
+| 1. Resolve services | `ObservabilityActiveServices` via `ActiveContainerNames` | none |
+| 2. Inspect expected | `runtimestate.InspectContainers` | one `podman inspect` (batch); per-name fallback if needed |
+| 3. Build rows | `ps.ListRowsWithContainerStates` / `ReportJSONWithContainerStates` | none |
+
+### explain (`internal/explain`)
+
+| Step | Function | Subprocesses |
+| --- | --- | --- |
+| 1. Resolve services | `ObservabilityActiveServices` (same selection rules as other observability commands) | none |
+| 2. Inspect expected | `inspectServiceContainers` → `runtimestate.InspectContainers` | one `podman inspect` (batch); per-name fallback if needed |
+| 3. Status + probes | `collectServiceStatus` — single-shot HTTP/exec probes with a **5s per-probe cap** | per-service probe only (not a second inspect loop) |
+| 4. Extras | `runtimestate.ExtraContainerNames` | one `podman ps` filter (unchanged) |
 
 ---
 

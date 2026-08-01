@@ -29,14 +29,26 @@ type ServiceStatus struct {
 	ExecErr    string
 }
 
-func collectServiceStatus(r *runner.Runner, svcName string, svc spec.Service, hostSubst map[string]string) ServiceStatus {
+// inspectServiceContainers returns a batch snapshot for the given service names.
+func inspectServiceContainers(r *runner.Runner, serviceNames []string) (map[string]*runtimestate.ContainerState, error) {
+	names := make([]string, len(serviceNames))
+	for i, svcName := range serviceNames {
+		names[i] = r.ContainerName(svcName)
+	}
+	return runtimestate.InspectContainers(names)
+}
+
+// collectServiceStatus builds one service's explain status from a prefetched
+// container state (for example from runtimestate.InspectContainers). When
+// inspectErr is non-nil, probes are skipped. When st is nil and inspectErr is
+// nil, the container is treated as missing.
+func collectServiceStatus(r *runner.Runner, svcName string, svc spec.Service, hostSubst map[string]string, st *runtimestate.ContainerState, inspectErr error) ServiceStatus {
 	svc = expand.ExpandService(svc, hostSubst)
 	cname := r.ContainerName(svcName)
 	out := ServiceStatus{Name: svcName, Container: cname}
 
-	st, err := runtimestate.InspectContainer(cname)
-	if err != nil {
-		out.InspectErr = err.Error()
+	if inspectErr != nil {
+		out.InspectErr = inspectErr.Error()
 		return out
 	}
 	if st == nil {

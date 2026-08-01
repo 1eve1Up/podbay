@@ -90,3 +90,71 @@ func TestListRows_partialRoots(t *testing.T) {
 		t.Fatalf("got %+v", rows)
 	}
 }
+
+func TestListRowsWithContainerStates_missingExitedRunning(t *testing.T) {
+	c := &spec.Contract{
+		Version: "1",
+		Services: map[string]spec.Service{
+			"web": {Image: "nginx:alpine"},
+			"api": {Image: "alpine:latest"},
+			"db":  {Image: "postgres:16"},
+		},
+	}
+	states := map[string]*runtimestate.ContainerState{
+		"podbay_demo_web": {State: "running", Image: "docker.io/library/nginx:alpine"},
+		"podbay_demo_api": nil,
+		"podbay_demo_db":  {State: "exited", ExitCode: 1, Error: "non-zero exit"},
+	}
+	rows, err := ListRowsWithContainerStates(c, "demo", nil, nil, false, states)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 3 {
+		t.Fatalf("len=%d", len(rows))
+	}
+	bySvc := map[string]Row{}
+	for _, rw := range rows {
+		bySvc[rw.Service] = rw
+	}
+	if !bySvc["api"].Missing || bySvc["api"].State != "missing" {
+		t.Fatalf("api: %+v", bySvc["api"])
+	}
+	if bySvc["web"].Missing || bySvc["web"].State != "running" || bySvc["web"].Image == "" {
+		t.Fatalf("web: %+v", bySvc["web"])
+	}
+	if bySvc["db"].Missing || bySvc["db"].State != "exited" || bySvc["db"].ExitCode != 1 || bySvc["db"].Error != "non-zero exit" {
+		t.Fatalf("db: %+v", bySvc["db"])
+	}
+}
+
+func TestListRowsWithContainerStates_matchesListRows(t *testing.T) {
+	c := &spec.Contract{
+		Services: map[string]spec.Service{
+			"web": {},
+			"api": {},
+		},
+	}
+	states := map[string]*runtimestate.ContainerState{
+		"podbay_demo_web": {State: "running", Image: "nginx"},
+		"podbay_demo_api": nil,
+	}
+	inspect := func(name string) (*runtimestate.ContainerState, error) {
+		return states[name], nil
+	}
+	legacy, err := ListRows(c, "demo", nil, nil, false, inspect)
+	if err != nil {
+		t.Fatal(err)
+	}
+	batch, err := ListRowsWithContainerStates(c, "demo", nil, nil, false, states)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(legacy) != len(batch) {
+		t.Fatalf("len legacy=%d batch=%d", len(legacy), len(batch))
+	}
+	for i := range legacy {
+		if legacy[i] != batch[i] {
+			t.Fatalf("row %d: legacy=%+v batch=%+v", i, legacy[i], batch[i])
+		}
+	}
+}

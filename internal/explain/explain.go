@@ -58,8 +58,13 @@ func Report(c *spec.Contract, contractPath, project string, profiles []string, d
 		b.WriteString("\n")
 	}
 
+	states, err := inspectServiceContainers(r, iterate)
+	if err != nil {
+		return "", err
+	}
 	for _, svcName := range iterate {
-		st := collectServiceStatus(r, svcName, profileActive[svcName], hostSubst)
+		cname := r.ContainerName(svcName)
+		st := collectServiceStatus(r, svcName, profileActive[svcName], hostSubst, states[cname], nil)
 		writeServiceDetail(&b, st)
 	}
 

@@ -59,16 +59,23 @@ Uses the same container naming, --profile, and partial selection rules as valida
 				return err
 			}
 			proj := projectName(c, path)
-			inspect := runtimestate.InspectContainer
+			_, containerNames, err := ps.ActiveContainerNames(c, proj, profiles, deployServices, dependents)
+			if err != nil {
+				return err
+			}
+			states, err := runtimestate.InspectContainers(containerNames)
+			if err != nil {
+				return err
+			}
 			if jsonOut {
-				raw, err := ps.ReportJSON(c, path, proj, profiles, deployServices, dependents, inspect)
+				raw, err := ps.ReportJSONWithContainerStates(c, path, proj, profiles, deployServices, dependents, states)
 				if err != nil {
 					return err
 				}
 				fmt.Fprintln(cmd.OutOrStdout(), strings.TrimSpace(string(raw)))
 				return nil
 			}
-			rows, err := ps.ListRows(c, proj, profiles, deployServices, dependents, inspect)
+			rows, err := ps.ListRowsWithContainerStates(c, proj, profiles, deployServices, dependents, states)
 			if err != nil {
 				return err
 			}

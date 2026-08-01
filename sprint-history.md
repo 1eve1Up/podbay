@@ -1,3 +1,49 @@
+# Sprint 33: Observability batching (ps / explain)
+
+2026-08-01
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Carries from Sprint 32:** Explain probes bounded (5s single-shot); agent failure path no longer hangs. Diff already batched via **`runtimestate`** (Sprint 31). **`ps` / `explain` still used N× `podman inspect`**.
+
+---
+
+## Sprint goal
+
+Replace N per-service **`podman inspect`** in **`podbay ps`** and **`podbay explain`** with **`runtimestate.InspectContainers`** — no CLI/JSON changes; probes stay single-shot and 5s-capped.
+
+---
+
+### What happened
+
+We added **`ListRowsWithContainerStates`** / **`ReportJSONWithContainerStates`**, wired **`ps`** and explain Report/JSON to batch inspect, made **`collectServiceStatus`** prefetch-aware, added unit tests, and documented the shared snapshot model in **`docs/architecture.md`** and **`docs/agent-loop.md`**. Nine **`feature/PIN-3301`** … **`feature/PIN-3309`** merges on **`main`**; **`go test ./...`** green (**274 insertions / 46 deletions** across **10** files, **`7989b37`** … **`bb955f7`**).
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-08-01 (UTC, sprint wrap)
+- **Scope**: Observability batching for `ps` / `explain`; no CLI or JSON envelope changes.
+
+### 5 whys (why ps/explain still paid N× inspect after Sprint 31–32)
+
+1. **Why still slow after explain stopped hanging?** Probes were capped; inspect remained N× **`InspectContainer`**.
+2. **Why only diff batched?** Sprint 31 wired diff first; ps/explain deferred on purpose.
+3. **Why Sprint 32 skipped batching?** Hang-class failures outrank latency debt.
+4. **Why not the env/contract cache next?** Batch APIs already existed; finishing consumers beats inventing a new cache subsystem.
+5. **Root lesson:** Wire every observability consumer of shared **`runtimestate`** snapshots before the next hot-path invention.
+
+### Actions
+
+- [x] ps batch API + CLI/JSON wiring + tests (**PIN-3301** … **PIN-3303**).
+- [x] explain prefetch + batch wiring + tests (**PIN-3304** … **PIN-3306**).
+- [x] Docs + verification + exit bar (**PIN-3307** … **PIN-3309**).
+- [ ] Parallel explain probes (deferred).
+- [ ] **`--no-probes` explain fast path** (deferred).
+- [ ] Cross-invocation env/contract cache (deferred).
+
 # Sprint 32: Explain health probe timeouts
 
 2026-06-28
@@ -41,7 +87,7 @@ We added **`HTTPProbeOnce`**, **`ExecOnceWithTimeout`**, and **`explainProbeTime
 - [x] Explain wiring + **`explainProbeTimeout`** tests (**PIN-3204**, **PIN-3205**).
 - [x] Docs + exit bar (**PIN-3206**, **PIN-3207**).
 - [ ] Parallel explain probes (deferred).
-- [ ] ps/explain inspect batching (deferred).
+- [x] ps/explain inspect batching (**done in Sprint 33**).
 - [ ] **`--no-probes` explain fast path** (deferred).
 
 # Sprint 31: Diff runtime efficiency
@@ -87,7 +133,7 @@ We added **`ParseInspectMany`**, **`InspectContainers`**, and project ps helpers
 - [x] **`ComputeWithContainerStates`** and **`ReportContractResult`** batch path (**PIN-3104**, **PIN-3105**).
 - [x] Tests, architecture doc, exit bar (**PIN-3106** … **PIN-3110**).
 - [ ] Cross-invocation env/contract cache (deferred).
-- [ ] ps/explain inspect batching (deferred).
+- [x] ps/explain inspect batching (**done in Sprint 33**).
 
 # Sprint 30: Deploy pipeline phase extraction
 
