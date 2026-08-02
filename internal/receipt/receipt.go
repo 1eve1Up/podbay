@@ -6,13 +6,20 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
 // CurrentFormatVersion is the only format version this codebase emits.
 const CurrentFormatVersion = 1
 
+// StatusOK is the status written on successful deploy receipts (evidence foundation).
+// Other outcomes are reserved for later failure/attempt receipts.
+const StatusOK = "ok"
+
 // Receipt records a successful Podbay deploy for agents and CI (v1).
+// Evidence fields (DeployID, ContractDigest, Status, DeployServices, DependentsExpand)
+// are optional on decode so pre-Sprint-34 receipts remain valid; new writers should set them.
 type Receipt struct {
 	FormatVersion int             `json:"format_version"`
 	GeneratedAt   time.Time       `json:"generated_at"`
@@ -20,6 +27,16 @@ type Receipt struct {
 	Project       string          `json:"project"`
 	Profiles      []string        `json:"profiles,omitempty"`
 	Services      []ServiceRecord `json:"services"`
+	// DeployID correlates a receipt with a deploy invocation (optional on legacy receipts).
+	DeployID string `json:"deploy_id,omitempty"`
+	// ContractDigest is sha256: hex of the contract file bytes used for deploy (optional on legacy).
+	ContractDigest string `json:"contract_digest,omitempty"`
+	// Status is "ok" on successful writes; empty on legacy receipts.
+	Status string `json:"status,omitempty"`
+	// DeployServices lists partial-deploy roots when selection applied (same as deploy --json).
+	DeployServices []string `json:"deploy_services,omitempty"`
+	// DependentsExpand is true when partial roots were set and --dependents was used.
+	DependentsExpand bool `json:"dependents_expand,omitempty"`
 }
 
 // EnvVar is one container environment variable captured on the receipt (optional).
@@ -70,6 +87,19 @@ func Validate(r *Receipt) error {
 		}
 		if s.ContainerName == "" {
 			return fmt.Errorf("receipt: services[%d].container_name required", i)
+		}
+	}
+	// Evidence fields are optional (legacy receipts omit them). When present, constrain shape.
+	if r.Status != "" && r.Status != StatusOK {
+		return fmt.Errorf("receipt: unsupported status %q (want %q or empty)", r.Status, StatusOK)
+	}
+	if r.ContractDigest != "" && !strings.HasPrefix(r.ContractDigest, "sha256:") {
+		return fmt.Errorf("receipt: contract_digest must start with sha256:")
+	}
+	if r.DeployID != "" {
+		trimmed := strings.TrimSpace(r.DeployID)
+		if trimmed == "" || trimmed != r.DeployID {
+			return fmt.Errorf("receipt: deploy_id must be non-empty without surrounding whitespace")
 		}
 	}
 	return nil

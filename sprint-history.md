@@ -1,3 +1,50 @@
+# Sprint 34: Receipts 2.0 evidence foundation
+
+2026-08-02
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Program:** Receipts 2.0 — *Deployments become evidence. Evidence becomes history. History becomes intelligence.*
+
+**Carries from Sprint 33:** Observability hot path done (`diff` / `ps` / `explain` batch inspect). Sprint 33 deferred env/contract cache as a natural next sprint; this sprint **overrides that** and pivots to receipts. Receipts were still weak identity snapshots (no `deploy_id` / digest / selection / store).
+
+---
+
+## Sprint goal
+
+Make every **successful** deploy emit a self-describing **evidence object** and land it in a project-local **history store** agents can list without inventing filenames or schema.
+
+---
+
+### What happened
+
+We shipped additive receipt evidence fields, digest/id helpers, batched receipt inspect, `--receipt` directory mode, pair-diff digest compare, `podbay receipt list`, CI demo, and docs. Nine **`feature/PIN-3401`** … **`feature/PIN-3409`** merges on **`main`**; **`go test ./...`** green (**1129 insertions / 149 deletions** across **28** files, **`34e5af5`** … **`b216942`**). Success-only; failure receipts and intelligence deferred.
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-08-02 (UTC, sprint wrap)
+- **Scope**: Receipts 2.0 evidence foundation; no failure receipts or intelligence.
+
+### 5 whys (why receipts were still weak identity snapshots after agent-loop maturity)
+
+1. **Why couldn’t agents treat a deploy as durable evidence?** No `deploy_id` / `contract_digest` / selection on the receipt; no store/list API.
+2. **Why did the roadmap say leave receipts alone?** Hot-path sprints (26–33) prioritized latency and loop correctness over schema enrichment.
+3. **Why was that wrong for Receipts 2.0?** Evidence that cannot be correlated or archived cannot become history or intelligence.
+4. **Why keep success-only?** Failure evidence already has deploy health JSON + logs/explain; attempt receipts need a stable success shape first.
+5. **Root lesson:** **Deployments become evidence before evidence becomes history**—id/digest/selection + thin store/list before failure attempts or intelligence.
+
+### Actions
+
+- [x] Evidence schema, helpers, emit + batch inspect, directory mode, pair-diff digest, `receipt list`, demo, docs, exit bar (**PIN-3401** … **PIN-3409**).
+- [ ] Failure / attempt receipts (deferred — Sprint 35).
+- [ ] History → intelligence (deferred — Sprint 36+).
+- [ ] Cross-invocation env/contract cache (deferred — perf track).
+- [ ] Parallel / `--no-probes` explain (deferred).
+
 # Sprint 33: Observability batching (ps / explain)
 
 2026-08-01
@@ -42,7 +89,7 @@ We added **`ListRowsWithContainerStates`** / **`ReportJSONWithContainerStates`**
 - [x] Docs + verification + exit bar (**PIN-3307** … **PIN-3309**).
 - [ ] Parallel explain probes (deferred).
 - [ ] **`--no-probes` explain fast path** (deferred).
-- [ ] Cross-invocation env/contract cache (deferred).
+- [x] Cross-invocation env/contract cache (deferred — **overridden** by Sprint 34 Receipts 2.0).
 
 # Sprint 32: Explain health probe timeouts
 

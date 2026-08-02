@@ -20,6 +20,8 @@
     ],
     "project_match": true,
     "contract_path_match": true,
-    "profiles_match": true
+    "profiles_match": true,
+    "contract_digest_match": true,
+    "contract_digest_comparable": true
   }
 }

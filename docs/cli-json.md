@@ -9,7 +9,7 @@ Reference for `--json` envelopes, receipts, and automation exit codes. Contract 
 Podbay’s JSON output is designed for tools, agents, and CI. Versioned documents include:
 
 - `format_version`
-- `kind`, such as `validate`, `deploy`, `diff`, `receipt_read`, `teardown`, `import_compose`, or `logs`
+- `kind`, such as `validate`, `deploy`, `diff`, `receipt_read`, `receipt_list`, `teardown`, `import_compose`, or `logs`
 - `status`, usually `ok` or `failed`
 - `issues[]`, with stable-ish codes, levels, messages, and optional service names
 - optional `deploy_services` on **`validate`** / **`deploy`** / **`diff`** / **`ps`** / **`explain`** / **`teardown` / `down`** JSON when you pass explicit service roots on the CLI; optional **`dependents_expand`** when partial roots are combined with **`--dependents`**
@@ -25,7 +25,24 @@ Podbay’s JSON output is designed for tools, agents, and CI. Versioned document
 | `deploy_external_dep_unhealthy` | Partial deploy waited on an external dependency’s health and it failed |
 | `deploy_error` | Non-health failures (build, start, volume, unexpected errors) |
 
-Success **`deploy --json`** shape is unchanged (`status: ok`, `receipt_path`, partial-selection fields). Preflight validate failures before deploy still surface validate-style issues, not health-gate codes.
+Success **`deploy --json`** includes `status: ok`, optional `receipt_path` (absolute path of the written receipt file), and partial-selection fields. Preflight validate failures before deploy still surface validate-style issues, not health-gate codes.
+
+### Deploy receipts (evidence)
+
+After a **fully successful** deploy, `--receipt PATH` writes a versioned receipt JSON (`format_version` **1**):
+
+- **File mode** — `PATH` is a file; that file is written atomically.
+- **Directory mode** — `PATH` is an existing directory or ends with `/`; writes `<dir>/<UTC>-<deploy_id>.json`. `deploy --json` `receipt_path` is always the **file** written.
+
+New success receipts include evidence fields: `deploy_id`, `contract_digest` (`sha256:` of contract file bytes), `status: ok`, and when partial roots apply, `deploy_services` / `dependents_expand` (same semantics as deploy `--json`). Older receipts without these fields still decode.
+
+```bash
+podbay receipt /path/to/receipt.json          # human summary (shows evidence fields when present)
+podbay receipt /path/to/receipt.json --json   # kind: receipt_read
+podbay receipt list .podbay/receipts/myproj --json   # kind: receipt_list, newest first
+```
+
+Receipts remain **success-only** evidence/audit artifacts (not crypto, SBOM, rollback, or failure-attempt records).
 
 ### Import compose JSON
 
@@ -45,10 +62,11 @@ PODBAY_BIN=./podbay ./examples/ci-deploy-health-fail-demo.sh
 set -euo pipefail
 
 podbay validate -f examples/nginx --json
-podbay deploy   -f examples/nginx --receipt /tmp/receipt.json --json
+podbay deploy   -f examples/nginx --receipt .podbay/receipts/nginx/ --json
+podbay receipt list .podbay/receipts/nginx --json
 podbay diff     -f examples/nginx --json | jq -e '.drift == false'
-podbay receipt  /tmp/receipt.json --json
 ```
+
 
 The same flow is available as a runnable demo:
 
@@ -67,7 +85,7 @@ Receipt comparison does not need a live Podman runtime:
 podbay diff /tmp/receipt-before.json /tmp/receipt-after.json --json
 ```
 
-Deploy receipts use **`format_version`** in the JSON file. Receipt pair diff compares two decoded receipt files only (not contract vs runtime).
+Deploy receipts use **`format_version`** in the JSON file. Receipt pair diff compares two decoded receipt files only (not contract vs runtime). When both sides have `contract_digest`, a mismatch is drift; when only one side has a digest, pair-diff emits an incomparable **warn** (legacy-compatible). `deploy_id` is not required to match across pair diffs.
 
 Receipts are useful as deployment evidence, release artifacts, drift gates, and agent handoff objects.
 

@@ -120,7 +120,7 @@ Partial-deploy demos: `examples/ci-partial-agent-loop-demo.sh`.
 | 2. Networks | `prepareNetworks` — project bridge or multi-net ensure | `networks.go` |
 | 3. Volumes | `prepareVolumes` — logical volumes and mount validation | `volumes.go` |
 | 4. Services | `deployServicesInOrder` — topo-ordered build, vault mounts, start, health gates | `services.go` |
-| 5. Receipt | `writeDeployReceipt` — optional post-success deploy receipt | `receipt.go` |
+| 5. Receipt | `writeDeployReceipt` — optional post-success evidence receipt (`deploy_id`, `contract_digest`, `status`, selection; batched inspect; file or directory `--receipt`) | `receipt.go`, `receipt_path.go` |
 
 Health gate waiting (`waitServiceHealth`) and structured health failures live in `health_wait.go` and `health_gate_failure.go`. Ansible vault bind materialization lives in `vault_materialize.go`.
 
@@ -128,7 +128,7 @@ Health gate waiting (`waitServiceHealth`) and structured health failures live in
 
 ## Runtime snapshots (`internal/runtimestate`)
 
-`podbay diff`, `podbay ps`, and `podbay explain` share batched Podman introspection via `internal/runtimestate` (`ParseInspectMany`, `InspectContainers`, `ListProjectContainerStates`, project-ps helpers). Expected services use **O(1) list/inspect rounds** instead of one `podman inspect` per service (batch inspect falls back to per-name when a name is missing).
+`podbay diff`, `podbay ps`, and `podbay explain` share batched Podman introspection via `internal/runtimestate` (`ParseInspectMany`, `InspectContainers`, `ListProjectContainerStates`, project-ps helpers). Deploy receipt collection uses `InspectContainersForReceipt` the same way. Expected services use **O(1) list/inspect rounds** instead of one `podman inspect` per service (batch inspect falls back to per-name when a name is missing).
 
 ### Diff (`internal/diff`)
 

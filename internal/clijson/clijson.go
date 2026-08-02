@@ -19,6 +19,7 @@ const (
 	KindValidate    = "validate"
 	KindDeploy      = "deploy"
 	KindReceiptRead = "receipt_read"
+	KindReceiptList = "receipt_list"
 	KindDiff        = "diff"
 	KindTeardown    = "teardown"
 	KindLogs        = "logs"
@@ -98,6 +99,21 @@ type Document struct {
 	ImportOutputPath string `json:"output_path,omitempty"`
 	// ImportServiceCount is len(services) in the generated contract.
 	ImportServiceCount int `json:"service_count,omitempty"`
+	// Receipt list (KindReceiptList): directory inventoried and newest-first entries.
+	ReceiptListDir string             `json:"receipt_list_dir,omitempty"`
+	Receipts       []ReceiptListEntry `json:"receipts,omitempty"`
+	// ReceiptListSkipped lists paths that were not valid receipts (best-effort).
+	ReceiptListSkipped []string `json:"receipt_list_skipped,omitempty"`
+}
+
+// ReceiptListEntry is one inventory row for kind receipt_list.
+type ReceiptListEntry struct {
+	Path         string `json:"path"`
+	DeployID     string `json:"deploy_id,omitempty"`
+	GeneratedAt  string `json:"generated_at,omitempty"`
+	Project      string `json:"project,omitempty"`
+	Status       string `json:"status,omitempty"`
+	ServiceCount int    `json:"service_count"`
 }
 
 // DiffServiceStatus is one expected service's runtime outcome inside a
@@ -124,16 +140,20 @@ type DiffServiceStatus struct {
 // ReceiptPairDiff is the structured receipt-vs-receipt comparison payload
 // (KindDiff, format_version 1). "first" / project_a align with CompareReceipts(a, b).
 type ReceiptPairDiff struct {
-	ProjectA      string   `json:"project_a"`
-	ProjectB      string   `json:"project_b"`
-	ContractPathA string   `json:"contract_path_a,omitempty"`
-	ContractPathB string   `json:"contract_path_b,omitempty"`
-	ProfilesA     []string `json:"profiles_a,omitempty"`
-	ProfilesB     []string `json:"profiles_b,omitempty"`
+	ProjectA        string   `json:"project_a"`
+	ProjectB        string   `json:"project_b"`
+	ContractPathA   string   `json:"contract_path_a,omitempty"`
+	ContractPathB   string   `json:"contract_path_b,omitempty"`
+	ContractDigestA string   `json:"contract_digest_a,omitempty"`
+	ContractDigestB string   `json:"contract_digest_b,omitempty"`
+	ProfilesA       []string `json:"profiles_a,omitempty"`
+	ProfilesB       []string `json:"profiles_b,omitempty"`
 
-	ProjectMatch      bool `json:"project_match"`
-	ContractPathMatch bool `json:"contract_path_match"`
-	ProfilesMatch     bool `json:"profiles_match"`
+	ProjectMatch             bool `json:"project_match"`
+	ContractPathMatch        bool `json:"contract_path_match"`
+	ProfilesMatch            bool `json:"profiles_match"`
+	ContractDigestMatch      bool `json:"contract_digest_match"`
+	ContractDigestComparable bool `json:"contract_digest_comparable"`
 
 	Services []ReceiptPairService `json:"services,omitempty"`
 }
@@ -306,6 +326,51 @@ func ReceiptReadFailure(absReceiptPath string, err error) *Document {
 		Issues: []Issue{{
 			Level:   validate.LevelFail,
 			Code:    "receipt_read_error",
+			Message: msg,
+		}},
+	}
+}
+
+// ReceiptListSuccess builds kind receipt_list from inventory rows.
+func ReceiptListSuccess(absDir string, entries []receipt.ListEntry, skipped []string) *Document {
+	out := make([]ReceiptListEntry, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, ReceiptListEntry{
+			Path:         e.Path,
+			DeployID:     e.DeployID,
+			GeneratedAt:  e.GeneratedAt,
+			Project:      e.Project,
+			Status:       e.Status,
+			ServiceCount: e.ServiceCount,
+		})
+	}
+	doc := &Document{
+		FormatVersion:  FormatVersion,
+		Kind:           KindReceiptList,
+		Status:         StatusOK,
+		ReceiptListDir: absDir,
+		Receipts:       out,
+	}
+	if len(skipped) > 0 {
+		doc.ReceiptListSkipped = append([]string(nil), skipped...)
+	}
+	return doc
+}
+
+// ReceiptListFailure builds a failed receipt_list document.
+func ReceiptListFailure(absDir string, err error) *Document {
+	msg := "receipt list failed"
+	if err != nil {
+		msg = err.Error()
+	}
+	return &Document{
+		FormatVersion:  FormatVersion,
+		Kind:           KindReceiptList,
+		Status:         StatusFailed,
+		ReceiptListDir: absDir,
+		Issues: []Issue{{
+			Level:   validate.LevelFail,
+			Code:    "receipt_list_error",
 			Message: msg,
 		}},
 	}

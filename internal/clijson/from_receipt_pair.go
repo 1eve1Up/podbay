@@ -52,13 +52,17 @@ func FromReceiptPairDiffWithOptions(res receipt.ReceiptDiffResult, opts ReceiptP
 	}
 
 	pair := &ReceiptPairDiff{
-		ProjectA:          res.ProjectA,
-		ProjectB:          res.ProjectB,
-		ContractPathA:     res.ContractPathA,
-		ContractPathB:     res.ContractPathB,
-		ProjectMatch:      res.ProjectMatch,
-		ContractPathMatch: res.ContractPathMatch,
-		ProfilesMatch:     res.ProfilesMatch,
+		ProjectA:                 res.ProjectA,
+		ProjectB:                 res.ProjectB,
+		ContractPathA:            res.ContractPathA,
+		ContractPathB:            res.ContractPathB,
+		ContractDigestA:          res.ContractDigestA,
+		ContractDigestB:          res.ContractDigestB,
+		ProjectMatch:             res.ProjectMatch,
+		ContractPathMatch:        res.ContractPathMatch,
+		ProfilesMatch:            res.ProfilesMatch,
+		ContractDigestMatch:      res.ContractDigestMatch,
+		ContractDigestComparable: res.ContractDigestComparable,
 	}
 	if len(res.ProfilesA) > 0 {
 		pair.ProfilesA = append([]string(nil), res.ProfilesA...)
@@ -114,6 +118,21 @@ func FromReceiptPairDiffWithOptions(res receipt.ReceiptDiffResult, opts ReceiptP
 			Level:   validate.LevelFail,
 			Code:    receipt.CodeProfilesMismatch,
 			Message: fmt.Sprintf("profiles mismatch: first=%v second=%v", res.ProfilesA, res.ProfilesB),
+		})
+	}
+	if !res.ContractDigestComparable {
+		doc.Issues = append(doc.Issues, Issue{
+			Level: validate.LevelWarn,
+			Code:  receipt.CodeContractDigestIncomparable,
+			Message: fmt.Sprintf("contract_digest incomparable (recorded on one receipt only): first=%q second=%q",
+				res.ContractDigestA, res.ContractDigestB),
+		})
+	} else if !res.ContractDigestMatch {
+		doc.Issues = append(doc.Issues, Issue{
+			Level: validate.LevelFail,
+			Code:  receipt.CodeContractDigestMismatch,
+			Message: fmt.Sprintf("contract_digest mismatch: first=%q second=%q",
+				res.ContractDigestA, res.ContractDigestB),
 		})
 	}
 	for _, s := range res.Services {

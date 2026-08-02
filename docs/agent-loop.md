@@ -15,7 +15,7 @@ Podbay gives agents:
 - **A deploy gate**: `podbay deploy --json --receipt ...` with structured success/failure.
 - **A drift gate**: `podbay diff --json` to prove runtime matches the contract.
 - **A log gate**: `podbay logs --json` captures container logs for one or many resolved services in one document (`log_entries[]`; not combinable with `--follow`).
-- **A durable receipt**: a deploy artifact that can be compared later without asking the agent to narrate from memory.
+- **A durable receipt**: a success-only evidence object (`deploy_id`, `contract_digest`, `status: ok`, optional selection) that can be stored under a project directory, listed with `podbay receipt list`, and compared later without narrating from memory. Failure evidence remains `logs` / `explain` JSON (failure receipts not shipped yet).
 - **A shared language**: builder, reviewer, test, deploy, security, and ops agents can all reason over the same file and JSON envelopes.
 
 That is the core difference from ordinary Compose usage: **Podbay treats runtime intent as an artifact agents can be held accountable to.**
@@ -50,7 +50,7 @@ For multi-service stacks, agents often deploy **one root** plus **`--dependents`
 | Step | Command | On failure |
 | --- | --- | --- |
 | Preflight | `podbay validate -f <contract> [roots...] --json` | Fix contract; do not deploy |
-| Deploy | `podbay deploy … --dependents --json --receipt …` | Parse `issues[].code` (see health table in [cli-json.md](cli-json.md)) |
+| Deploy | `podbay deploy … --dependents --json --receipt <file-or-dir/>` | Parse `issues[].code` (see health table in [cli-json.md](cli-json.md)); on success read `receipt_path` |
 | Drift | `podbay diff … --json` (same roots **and same `--profile` set**) | `drift == true` → inspect or redeploy |
 | Evidence | `podbay logs … --json` (same roots **and same `--profile` set**) | `log_entries[]` per resolved service |
 | Diagnose | `podbay explain … --json` (same roots **and same `--profile` set**) | Factual runtime/health context (not root cause) |

@@ -73,7 +73,10 @@ Runtime commands use **`spec`** only. **`import compose`** uses composefile → 
 | Term | Meaning |
 | --- | --- |
 | **`format_version`** | Integer schema version on versioned JSON documents (currently **1**). |
-| **`kind`** | Discriminator: `validate`, `deploy`, `diff`, `receipt_read`, `teardown`, `import_compose`, `logs`, etc. |
+| **`kind`** | Discriminator: `validate`, `deploy`, `diff`, `receipt_read`, `receipt_list`, `teardown`, `import_compose`, `logs`, etc. |
+| **`deploy_id`** | UUID on a success deploy receipt; correlates deploy JSON `receipt_path` with a durable evidence file. |
+| **`contract_digest`** | `sha256:` hex of the contract **file bytes** used for deploy (content identity; path remains a local locator). |
+| **`receipt_list`** | JSON kind for `podbay receipt list --json`: newest-first inventory of valid receipts in a directory. |
 | **`status`** | Usually **`ok`** or **`failed`**. |
 | **`issues[]`** | Structured failures with **`code`**, **`level`**, **`message`**, optional **`service`**. |
 | **`issues[].code`** | Stable machine identifier (e.g. `deploy_health_timeout`, `import_include_cycle`). See [cli-json.md](cli-json.md). |

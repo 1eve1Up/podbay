@@ -56,6 +56,39 @@ func TestCompareReceipts_contractPathMismatch(t *testing.T) {
 	}
 }
 
+func TestCompareReceipts_contractDigestMismatch(t *testing.T) {
+	a := receiptFixture("p", "/x.yaml", nil, nil)
+	b := receiptFixture("p", "/x.yaml", nil, nil)
+	a.ContractDigest = "sha256:aaa"
+	b.ContractDigest = "sha256:bbb"
+	got := CompareReceipts(a, b)
+	if !got.Drift || got.ContractDigestMatch || !got.ContractDigestComparable {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestCompareReceipts_contractDigestIncomparable(t *testing.T) {
+	a := receiptFixture("p", "/x.yaml", nil, nil)
+	b := receiptFixture("p", "/x.yaml", nil, nil)
+	a.ContractDigest = "sha256:aaa"
+	got := CompareReceipts(a, b)
+	if got.Drift {
+		t.Fatalf("incomparable must not set drift: %+v", got)
+	}
+	if got.ContractDigestMatch || got.ContractDigestComparable {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestCompareReceipts_contractDigestBothEmptyMatch(t *testing.T) {
+	a := receiptFixture("p", "/x.yaml", nil, nil)
+	b := receiptFixture("p", "/x.yaml", nil, nil)
+	got := CompareReceipts(a, b)
+	if got.Drift || !got.ContractDigestMatch || !got.ContractDigestComparable {
+		t.Fatalf("got %+v", got)
+	}
+}
+
 func TestCompareReceipts_profilesMismatch(t *testing.T) {
 	a := receiptFixture("p", "/x.yaml", []string{"dev"}, nil)
 	b := receiptFixture("p", "/x.yaml", []string{"prod"}, nil)

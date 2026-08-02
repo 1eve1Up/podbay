@@ -48,6 +48,8 @@
     "project_match": false,
     "contract_path_match": false,
     "profiles_match": false,
+    "contract_digest_match": true,
+    "contract_digest_comparable": true,
     "services": [
       {
         "service": "api",

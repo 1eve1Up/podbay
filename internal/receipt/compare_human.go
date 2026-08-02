@@ -26,6 +26,17 @@ func FormatReceiptDiff(res ReceiptDiffResult) string {
 		fmt.Fprintf(&b, "mismatch\n  first:  %s\n  second: %s\n", res.ContractPathA, res.ContractPathB)
 	}
 
+	b.WriteString("Contract digest: ")
+	switch {
+	case !res.ContractDigestComparable:
+		fmt.Fprintf(&b, "incomparable (recorded on one receipt only)\n  first:  %s\n  second: %s\n",
+			digestOrNone(res.ContractDigestA), digestOrNone(res.ContractDigestB))
+	case res.ContractDigestMatch:
+		fmt.Fprintf(&b, "%s\n", digestOrNone(res.ContractDigestA))
+	default:
+		fmt.Fprintf(&b, "mismatch\n  first:  %s\n  second: %s\n", res.ContractDigestA, res.ContractDigestB)
+	}
+
 	b.WriteString("Profiles: ")
 	if res.ProfilesMatch {
 		fmt.Fprintf(&b, "%s\n", formatProfileLine(res.ProfilesA))
@@ -50,6 +61,13 @@ func FormatReceiptDiff(res ReceiptDiffResult) string {
 		b.WriteString("Drift detected.\n")
 	}
 	return b.String()
+}
+
+func digestOrNone(d string) string {
+	if d == "" {
+		return "(none)"
+	}
+	return d
 }
 
 func formatProfileLine(p []string) string {

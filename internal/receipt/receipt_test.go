@@ -64,6 +64,74 @@ func TestNew_setsVersionAndTime(t *testing.T) {
 	}
 }
 
+func TestDecode_legacyWithoutEvidenceFields(t *testing.T) {
+	raw := []byte(`{
+  "format_version": 1,
+  "generated_at": "2026-05-08T12:00:00Z",
+  "contract_path": "/app/podbay.yaml",
+  "project": "demo",
+  "services": [
+    {"service": "api", "container_name": "podbay_demo_api"}
+  ]
+}`)
+	got, err := Decode(raw)
+	if err != nil {
+		t.Fatalf("legacy decode: %v", err)
+	}
+	if got.DeployID != "" || got.ContractDigest != "" || got.Status != "" {
+		t.Fatalf("expected empty evidence fields, got deploy_id=%q digest=%q status=%q", got.DeployID, got.ContractDigest, got.Status)
+	}
+	if got.DependentsExpand || len(got.DeployServices) != 0 {
+		t.Fatalf("unexpected selection fields: services=%v expand=%v", got.DeployServices, got.DependentsExpand)
+	}
+}
+
+func TestEncodeDecode_withEvidenceFields(t *testing.T) {
+	fixed := time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
+	r := &Receipt{
+		FormatVersion:    CurrentFormatVersion,
+		GeneratedAt:      fixed,
+		ContractPath:     "/app/podbay.yaml",
+		Project:          "demo",
+		Services:         []ServiceRecord{{Service: "api", ContainerName: "podbay_demo_api"}},
+		DeployID:         "11111111-2222-3333-4444-555555555555",
+		ContractDigest:   "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		Status:           StatusOK,
+		DeployServices:   []string{"api"},
+		DependentsExpand: true,
+	}
+	data, err := Encode(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := Decode(data)
+	if err != nil {
+		t.Fatalf("decode: %v\n%s", err, string(data))
+	}
+	if got.DeployID != r.DeployID || got.ContractDigest != r.ContractDigest || got.Status != StatusOK {
+		t.Fatalf("evidence mismatch %+v", got)
+	}
+	if len(got.DeployServices) != 1 || got.DeployServices[0] != "api" || !got.DependentsExpand {
+		t.Fatalf("selection mismatch %+v", got)
+	}
+}
+
+func TestValidate_rejectsUnsupportedStatus(t *testing.T) {
+	r := New("/x.yaml", "p", nil, []ServiceRecord{{Service: "s", ContainerName: "c"}})
+	r.Status = "failed"
+	if err := Validate(r); err == nil {
+		t.Fatal("expected unsupported status error")
+	}
+}
+
+func TestValidate_rejectsBadContractDigest(t *testing.T) {
+	r := New("/x.yaml", "p", nil, []ServiceRecord{{Service: "s", ContainerName: "c"}})
+	r.ContractDigest = "md5:deadbeef"
+	if err := Validate(r); err == nil {
+		t.Fatal("expected bad digest error")
+	}
+}
+
 func TestWriteAtomic_roundTrip(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "r.json")

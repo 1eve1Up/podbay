@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -33,6 +32,7 @@ With -f / --file: optional extra arguments are service names for partial deploy 
 Without -f: use "deploy path [service ...]" — a single argument is either a contract path (if that path exists) or a service name when ./podbay.yaml exists and defines that service; additional arguments select partial-deploy roots.
 
 After a fully successful deploy, --receipt PATH writes a versioned JSON receipt (atomic write; no partial file if deploy fails).
+If PATH is a directory (or ends with /), writes <dir>/<UTC>-<deploy_id>.json instead.
 
 With --json: print one versioned JSON document (format_version, kind deploy) on stdout; progress output is
 suppressed for machine-readable runs. Exit code 1 on preflight or deploy failure.`,
@@ -57,24 +57,20 @@ suppressed for machine-readable runs. Exit code 1 on preflight or deploy failure
 						os.Exit(1)
 					}
 				}
-				absReceipt := ""
-				if strings.TrimSpace(receiptPath) != "" {
-					if rp, err := filepath.Abs(receiptPath); err == nil {
-						absReceipt = rp
-					}
-				}
+				var writtenReceipt string
 				depQuiet := quiet || jsonOut
 				depErr := deploy.Deploy(c, path, proj, deploy.Options{
-					Profiles:         profiles,
-					DeployServices:   deployServices,
-					DeployDependents: dependents,
-					SkipHealthWait:   skipHealth,
-					HealthTimeout:    healthTimeout,
-					Quiet:            depQuiet,
-					Out:              cmd.OutOrStdout(),
-					ReceiptPath:      receiptPath,
+					Profiles:           profiles,
+					DeployServices:     deployServices,
+					DeployDependents:   dependents,
+					SkipHealthWait:     skipHealth,
+					HealthTimeout:      healthTimeout,
+					Quiet:              depQuiet,
+					Out:                cmd.OutOrStdout(),
+					ReceiptPath:        receiptPath,
+					WrittenReceiptPath: &writtenReceipt,
 				})
-				doc := clijson.DeployOutcome(path, proj, profiles, deployServices, absReceipt, depErr, dependents)
+				doc := clijson.DeployOutcome(path, proj, profiles, deployServices, writtenReceipt, depErr, dependents)
 				raw, mErr := clijson.MarshalIndent(doc)
 				if mErr != nil {
 					return mErr
@@ -107,7 +103,7 @@ suppressed for machine-readable runs. Exit code 1 on preflight or deploy failure
 	cmd.Flags().BoolVar(&skipHealth, "skip-health-wait", false, "do not wait for health gates after start")
 	cmd.Flags().DurationVar(&healthTimeout, "health-timeout", 120*time.Second, "max wall time per service health gate (HTTP or exec)")
 	cmd.Flags().StringSliceVar(&profiles, "profile", nil, "enable services with this profile (repeatable)")
-	cmd.Flags().StringVar(&receiptPath, "receipt", "", "after success, write deploy receipt JSON to this path (atomic; omitted on failure)")
+	cmd.Flags().StringVar(&receiptPath, "receipt", "", "after success, write deploy receipt JSON to this path (or directory for <UTC>-<deploy_id>.json; atomic; omitted on failure)")
 	cmd.Flags().BoolVar(&dependents, "dependents", false, "with partial targets, include transitive dependents within the profile-active set")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit versioned JSON (format_version) for agents and CI")
 	return cmd

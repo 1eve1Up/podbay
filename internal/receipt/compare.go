@@ -1,11 +1,12 @@
 // Receipt-to-receipt comparison (v1 stack identity + optional v2 env/mount snapshots).
 //
 // CompareReceipts compares two receipts that have already passed Validate or Decode.
-// Compared fields: project, contract_path, profiles (order-independent), and per
-// service name: presence in each receipt, image, container_name, container_id, and
-// optional env / mounts when both receipts record those slices for the service.
-// Not compared: generated_at (intentionally ignored for “what changed in deploy
-// identity”), and format_version (callers must already enforce v1 via Validate).
+// Compared fields: project, contract_path, contract_digest (when both recorded),
+// profiles (order-independent), and per service name: presence in each receipt,
+// image, container_name, container_id, and optional env / mounts when both
+// receipts record those slices for the service.
+// Not compared: generated_at, deploy_id (intentionally ignored), and format_version
+// (callers must already enforce v1 via Validate).
 //
 // If the same service name appears more than once in one receipt, the last entry
 // in that receipt’s services slice wins for comparison (Validate does not forbid duplicates).
@@ -18,33 +19,39 @@ import (
 
 // Stable semantic codes for receipt diffs (JSON / human renderers may key off these strings).
 const (
-	CodeProjectMismatch      = "receipt_diff_project_mismatch"
-	CodeContractPathMismatch = "receipt_diff_contract_path_mismatch"
-	CodeProfilesMismatch     = "receipt_diff_profiles_mismatch"
-	CodeServiceAdded         = "receipt_diff_service_added"
-	CodeServiceRemoved       = "receipt_diff_service_removed"
-	CodeImageChanged         = "receipt_diff_image_changed"
-	CodeContainerNameChanged = "receipt_diff_container_name_changed"
-	CodeContainerIDChanged   = "receipt_diff_container_id_changed"
-	CodeEnvChanged           = "receipt_diff_env_changed"
-	CodeMountsChanged        = "receipt_diff_mounts_changed"
-	CodeEnvIncomparable      = "receipt_diff_env_incomparable"
-	CodeMountsIncomparable   = "receipt_diff_mounts_incomparable"
+	CodeProjectMismatch            = "receipt_diff_project_mismatch"
+	CodeContractPathMismatch       = "receipt_diff_contract_path_mismatch"
+	CodeContractDigestMismatch     = "receipt_diff_contract_digest_mismatch"
+	CodeContractDigestIncomparable = "receipt_diff_contract_digest_incomparable"
+	CodeProfilesMismatch           = "receipt_diff_profiles_mismatch"
+	CodeServiceAdded               = "receipt_diff_service_added"
+	CodeServiceRemoved             = "receipt_diff_service_removed"
+	CodeImageChanged               = "receipt_diff_image_changed"
+	CodeContainerNameChanged       = "receipt_diff_container_name_changed"
+	CodeContainerIDChanged         = "receipt_diff_container_id_changed"
+	CodeEnvChanged                 = "receipt_diff_env_changed"
+	CodeMountsChanged              = "receipt_diff_mounts_changed"
+	CodeEnvIncomparable            = "receipt_diff_env_incomparable"
+	CodeMountsIncomparable         = "receipt_diff_mounts_incomparable"
 )
 
 // ReceiptDiffResult is the structured outcome of comparing two validated v1 receipts.
 // Services lists only rows with at least one delta code; identical services are omitted.
 type ReceiptDiffResult struct {
-	ProjectA      string
-	ProjectB      string
-	ContractPathA string
-	ContractPathB string
-	ProfilesA     []string
-	ProfilesB     []string
+	ProjectA        string
+	ProjectB        string
+	ContractPathA   string
+	ContractPathB   string
+	ContractDigestA string
+	ContractDigestB string
+	ProfilesA       []string
+	ProfilesB       []string
 
-	ProjectMatch      bool
-	ContractPathMatch bool
-	ProfilesMatch     bool
+	ProjectMatch             bool
+	ContractPathMatch        bool
+	ProfilesMatch            bool
+	ContractDigestMatch      bool
+	ContractDigestComparable bool // false when exactly one side has a digest
 
 	Services []ServiceReceiptDiff
 	Drift    bool
@@ -65,12 +72,14 @@ func CompareReceipts(a, b *Receipt) ReceiptDiffResult {
 	}
 
 	res := ReceiptDiffResult{
-		ProjectA:      a.Project,
-		ProjectB:      b.Project,
-		ContractPathA: a.ContractPath,
-		ContractPathB: b.ContractPath,
-		ProfilesA:     append([]string(nil), a.Profiles...),
-		ProfilesB:     append([]string(nil), b.Profiles...),
+		ProjectA:        a.Project,
+		ProjectB:        b.Project,
+		ContractPathA:   a.ContractPath,
+		ContractPathB:   b.ContractPath,
+		ContractDigestA: a.ContractDigest,
+		ContractDigestB: b.ContractDigest,
+		ProfilesA:       append([]string(nil), a.Profiles...),
+		ProfilesB:       append([]string(nil), b.Profiles...),
 	}
 
 	res.ProjectMatch = a.Project == b.Project
@@ -85,6 +94,7 @@ func CompareReceipts(a, b *Receipt) ReceiptDiffResult {
 	if !res.ProfilesMatch {
 		res.Drift = true
 	}
+	compareContractDigests(&res, a.ContractDigest, b.ContractDigest)
 
 	ma := serviceMap(a.Services)
 	mb := serviceMap(b.Services)
@@ -123,6 +133,25 @@ func CompareReceipts(a, b *Receipt) ReceiptDiffResult {
 		}
 	}
 	return res
+}
+
+func compareContractDigests(res *ReceiptDiffResult, da, db string) {
+	switch {
+	case da == "" && db == "":
+		res.ContractDigestMatch = true
+		res.ContractDigestComparable = true
+	case da == "" || db == "":
+		res.ContractDigestMatch = false
+		res.ContractDigestComparable = false
+		// Warn-class only: do not set Drift (same as env/mounts incomparable).
+	case da == db:
+		res.ContractDigestMatch = true
+		res.ContractDigestComparable = true
+	default:
+		res.ContractDigestMatch = false
+		res.ContractDigestComparable = true
+		res.Drift = true
+	}
 }
 
 func profilesEqual(a, b []string) bool {

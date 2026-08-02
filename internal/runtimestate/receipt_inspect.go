@@ -12,7 +12,8 @@ import (
 	"github.com/1eve1Up/podbay/internal/receipt"
 )
 
-type inspectReceiptObj []struct {
+type inspectReceiptElem struct {
+	Name   string `json:"Name"`
 	ID     string `json:"Id"`
 	Image  string `json:"Image"`
 	Config struct {
@@ -23,6 +24,25 @@ type inspectReceiptObj []struct {
 		Source      string `json:"Source"`
 		Destination string `json:"Destination"`
 	} `json:"Mounts"`
+}
+
+// ReceiptInspect is identity plus env/mount snapshots for one container.
+type ReceiptInspect struct {
+	ID     string
+	Image  string
+	Env    *[]receipt.EnvVar
+	Mounts *[]receipt.MountSpec
+}
+
+func receiptInspectFromElem(o inspectReceiptElem) ReceiptInspect {
+	ev := normalizeEnvVars(parseEnvStrings(o.Config.Env))
+	ms := normalizeMountSpecs(parseMounts(o.Mounts))
+	return ReceiptInspect{
+		ID:     strings.TrimSpace(o.ID),
+		Image:  strings.TrimSpace(o.Image),
+		Env:    &ev,
+		Mounts: &ms,
+	}
 }
 
 // InspectContainerForReceipt runs podman inspect once and returns identity plus
@@ -36,21 +56,78 @@ func InspectContainerForReceipt(containerName string) (id, image string, env *[]
 	return ParseContainerForReceiptJSON(out)
 }
 
+// InspectContainersForReceipt returns receipt inspect data for each name in one
+// podman inspect when possible. On batch failure it falls back to per-name
+// InspectContainerForReceipt (same pattern as InspectContainers).
+func InspectContainersForReceipt(names []string) (map[string]ReceiptInspect, error) {
+	if len(names) == 0 {
+		return map[string]ReceiptInspect{}, nil
+	}
+	args := append([]string{"inspect"}, names...)
+	out, err := exec.Command("podman", args...).Output()
+	if err == nil {
+		batch, parseErr := ParseContainersForReceiptJSON(out)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		return mergeReceiptInspectResults(names, batch), nil
+	}
+	result := make(map[string]ReceiptInspect, len(names))
+	for _, name := range names {
+		id, image, env, mounts, inspectErr := InspectContainerForReceipt(name)
+		if inspectErr != nil {
+			return nil, inspectErr
+		}
+		result[name] = ReceiptInspect{ID: id, Image: image, Env: env, Mounts: mounts}
+	}
+	return result, nil
+}
+
+func mergeReceiptInspectResults(names []string, batch map[string]ReceiptInspect) map[string]ReceiptInspect {
+	out := make(map[string]ReceiptInspect, len(names))
+	for _, name := range names {
+		if ri, ok := batch[name]; ok {
+			out[name] = ri
+			continue
+		}
+		// Also accept Name-keyed batch entries under normalized form.
+		if ri, ok := batch[normalizeInspectName(name)]; ok {
+			out[name] = ri
+		}
+	}
+	return out
+}
+
+// ParseContainersForReceiptJSON parses a multi-element podman inspect JSON array
+// into a map keyed by container name (leading slash stripped).
+func ParseContainersForReceiptJSON(out []byte) (map[string]ReceiptInspect, error) {
+	var data []inspectReceiptElem
+	if err := json.Unmarshal(out, &data); err != nil {
+		return nil, fmt.Errorf("parse inspect many receipt: %w", err)
+	}
+	result := make(map[string]ReceiptInspect, len(data))
+	for _, elem := range data {
+		key := normalizeInspectName(elem.Name)
+		if key == "" {
+			// Single-element inspect without Name: leave empty key unused; caller uses ParseContainerForReceiptJSON.
+			continue
+		}
+		result[key] = receiptInspectFromElem(elem)
+	}
+	return result, nil
+}
+
 // ParseContainerForReceiptJSON parses podman inspect JSON (array of objects).
 func ParseContainerForReceiptJSON(out []byte) (id, image string, env *[]receipt.EnvVar, mounts *[]receipt.MountSpec, err error) {
-	var data inspectReceiptObj
+	var data []inspectReceiptElem
 	if err := json.Unmarshal(out, &data); err != nil {
 		return "", "", nil, nil, fmt.Errorf("parse inspect: %w", err)
 	}
 	if len(data) == 0 {
 		return "", "", nil, nil, fmt.Errorf("parse inspect: empty array")
 	}
-	o := data[0]
-	id = strings.TrimSpace(o.ID)
-	image = strings.TrimSpace(o.Image)
-	ev := normalizeEnvVars(parseEnvStrings(o.Config.Env))
-	ms := normalizeMountSpecs(parseMounts(o.Mounts))
-	return id, image, &ev, &ms, nil
+	ri := receiptInspectFromElem(data[0])
+	return ri.ID, ri.Image, ri.Env, ri.Mounts, nil
 }
 
 func parseEnvStrings(lines []string) []receipt.EnvVar {
