@@ -1,3 +1,49 @@
+# Sprint 35: Receipts 2.0 failure attempts
+
+2026-08-05
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Program:** Receipts 2.0 — *Deployments become evidence. Evidence becomes history. History becomes intelligence.*
+
+**Carries from Sprint 34:** Success deploys emit correlatable evidence into a directory history store with `podbay receipt list`. Receipts were still **success-only** — health-gate failures left ephemeral `deploy --json` / `logs` / `explain` only.
+
+---
+
+## Sprint goal
+
+Make health-gate deploy failures emit durable **attempt receipts** into the same history store, and let agents filter that store by status (`receipt list --status`).
+
+---
+
+### What happened
+
+We shipped `StatusFailed` + `failure` summary fields, attempt write on `HealthGateFailure`, `receipt_path` on failed `deploy --json`, `receipt list --status`, health-fail demo coverage, and docs. Eight **`feature/PIN-3501`** … **`feature/PIN-3508`** merges on **`main`**; **`go test ./...`** green (**669 insertions / 36 deletions** across **19** files, **`a087757`** … **`b4879c8`**). Intelligence deferred to Sprint 36+.
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-08-05 (UTC, sprint wrap)
+- **Scope**: Receipts 2.0 history completion; no intelligence (diff vs last ok / next-action).
+
+### 5 whys (why failure evidence was still ephemeral after Sprint 34)
+
+1. **Why couldn’t agents archive a failed deploy?** Success receipts landed in the store; health-gate failures only left ephemeral stdout.
+2. **Why was Validate rejecting `status: failed`?** Sprint 34 reserved non-ok outcomes and kept Validate success-only for legacy goldens.
+3. **Why did that block history?** A success-biased store cannot answer “what broke last?” or feed Sprint 36 “diff vs last ok.”
+4. **Why not pivot to env/contract cache?** Cache/probe wins do not advance the Receipts 2.0 spine; Sprint 34 already named failure attempts next.
+5. **Root lesson:** **Evidence becomes history only when both outcomes are durable**—attempt receipts + status filters before intelligence.
+
+### Actions
+
+- [x] Attempt receipts, `receipt_path` on fail, list `--status`, demo, docs, exit bar (**PIN-3501** … **PIN-3508**).
+- [ ] History → intelligence (deferred — Sprint 36+).
+- [ ] Cross-invocation env/contract cache (deferred — perf track).
+- [ ] Parallel / `--no-probes` explain (deferred).
+
 # Sprint 34: Receipts 2.0 evidence foundation
 
 2026-08-02

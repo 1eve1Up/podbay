@@ -25,24 +25,29 @@ Podbay’s JSON output is designed for tools, agents, and CI. Versioned document
 | `deploy_external_dep_unhealthy` | Partial deploy waited on an external dependency’s health and it failed |
 | `deploy_error` | Non-health failures (build, start, volume, unexpected errors) |
 
-Success **`deploy --json`** includes `status: ok`, optional `receipt_path` (absolute path of the written receipt file), and partial-selection fields. Preflight validate failures before deploy still surface validate-style issues, not health-gate codes.
+Success **`deploy --json`** includes `status: ok`, optional `receipt_path` (absolute path of the written receipt file), and partial-selection fields. Health-gate **failures** with `--receipt` also include `receipt_path` when an attempt receipt was written. Preflight validate failures before deploy still surface validate-style issues, not health-gate codes, and do not write a receipt.
 
 ### Deploy receipts (evidence)
 
-After a **fully successful** deploy, `--receipt PATH` writes a versioned receipt JSON (`format_version` **1**):
+`--receipt PATH` writes a versioned receipt JSON (`format_version` **1**):
 
 - **File mode** — `PATH` is a file; that file is written atomically.
 - **Directory mode** — `PATH` is an existing directory or ends with `/`; writes `<dir>/<UTC>-<deploy_id>.json`. `deploy --json` `receipt_path` is always the **file** written.
 
-New success receipts include evidence fields: `deploy_id`, `contract_digest` (`sha256:` of contract file bytes), `status: ok`, and when partial roots apply, `deploy_services` / `dependents_expand` (same semantics as deploy `--json`). Older receipts without these fields still decode.
+**Success** receipts include evidence fields: `deploy_id`, `contract_digest` (`sha256:` of contract file bytes), `status: ok`, and when partial roots apply, `deploy_services` / `dependents_expand` (same semantics as deploy `--json`).
+
+**Attempt** receipts (health-gate failures after deploy has started, when `--receipt` is set) use the same identity fields with `status: failed` and a `failure` object (`service`, `code`, `class`, `probe_kind`, `message`, optional external-dep context) aligned with `deploy_health_*` issue codes. Service snapshots are best-effort. No receipt is written on pure preflight validate failure or when `--receipt` is unset.
+
+Older receipts without evidence/failure fields still decode.
 
 ```bash
-podbay receipt /path/to/receipt.json          # human summary (shows evidence fields when present)
+podbay receipt /path/to/receipt.json          # human summary (shows evidence / failure fields when present)
 podbay receipt /path/to/receipt.json --json   # kind: receipt_read
-podbay receipt list .podbay/receipts/myproj --json   # kind: receipt_list, newest first
+podbay receipt list .podbay/receipts/myproj --json                 # kind: receipt_list, newest first
+podbay receipt list .podbay/receipts/myproj --status failed --json # attempts only (ok also matches legacy empty status)
 ```
 
-Receipts remain **success-only** evidence/audit artifacts (not crypto, SBOM, rollback, or failure-attempt records).
+Receipts are evidence/audit artifacts (not crypto, SBOM, rollback, or automatic next-action intelligence).
 
 ### Import compose JSON
 
@@ -100,7 +105,7 @@ Receipts are useful as deployment evidence, release artifacts, drift gates, and 
 Podbay is meant to fail closed in automation:
 
 - `validate` exits non-zero on fail-level validation issues.
-- `deploy` exits non-zero on validation or runtime failure and does not write a partial receipt.
+- `deploy` exits non-zero on validation or runtime failure. It does not write a receipt on preflight validate failure or when `--receipt` is unset; health-gate failures with `--receipt` write an intentional attempt receipt (`status: failed`).
 - `diff` exits non-zero when drift is detected or comparison cannot complete.
 - `teardown` / `down` remove what they can and report structured issues in JSON; network removal warnings are non-fatal.
 - `logs --json` exits **0** on success (including empty per-entry `log_body` values) and **1** on contract load/resolution errors, Podman unavailability, `podman logs` failure, **`--json` with `--follow`**, or **`--follow`** with multiple resolved services. Success may include **`log_entries[]`**, **`deploy_services`**, and **`dependents_expand`** when partial roots apply.

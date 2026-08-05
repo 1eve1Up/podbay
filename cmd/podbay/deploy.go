@@ -31,8 +31,10 @@ With -f / --file: optional extra arguments are service names for partial deploy 
 
 Without -f: use "deploy path [service ...]" — a single argument is either a contract path (if that path exists) or a service name when ./podbay.yaml exists and defines that service; additional arguments select partial-deploy roots.
 
-After a fully successful deploy, --receipt PATH writes a versioned JSON receipt (atomic write; no partial file if deploy fails).
+After a fully successful deploy, --receipt PATH writes a versioned JSON receipt (atomic write).
+On health-gate failure with --receipt set, writes an attempt receipt (status failed) the same way.
 If PATH is a directory (or ends with /), writes <dir>/<UTC>-<deploy_id>.json instead.
+No receipt on preflight validate failure or when --receipt is unset.
 
 With --json: print one versioned JSON document (format_version, kind deploy) on stdout; progress output is
 suppressed for machine-readable runs. Exit code 1 on preflight or deploy failure.`,

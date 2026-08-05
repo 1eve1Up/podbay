@@ -13,10 +13,15 @@ import (
 
 func captureDeployJSON(t *testing.T, deployErr error, deployServices []string, dependents bool) string {
 	t.Helper()
+	return captureDeployJSONWithReceipt(t, deployErr, deployServices, dependents, "")
+}
+
+func captureDeployJSONWithReceipt(t *testing.T, deployErr error, deployServices []string, dependents bool, receiptPath string) string {
+	t.Helper()
 	cmd := &cobra.Command{}
 	var buf strings.Builder
 	cmd.SetOut(&buf)
-	doc := clijson.DeployOutcome("/app/podbay.yaml", "demo", nil, deployServices, "", deployErr, dependents)
+	doc := clijson.DeployOutcome("/app/podbay.yaml", "demo", nil, deployServices, receiptPath, deployErr, dependents)
 	raw, err := clijson.MarshalIndent(doc)
 	if err != nil {
 		t.Fatal(err)
@@ -121,6 +126,28 @@ func TestDeployJSONIntegration_healthProbeFailed(t *testing.T) {
 	issues, _ := m["issues"].([]any)
 	first, _ := issues[0].(map[string]any)
 	if first["code"] != clijson.CodeDeployHealthProbeFailed {
+		t.Fatalf("code = %v", first["code"])
+	}
+}
+
+func TestDeployJSONIntegration_failedWithAttemptReceiptPath(t *testing.T) {
+	err := &deploy.HealthGateFailure{
+		Service:      "web",
+		ProbeKind:    deploy.ProbeHTTP,
+		FailureClass: deploy.HealthFailureTimeout,
+		Message:      "health check failed: timeout",
+	}
+	out := captureDeployJSONWithReceipt(t, err, nil, false, "/tmp/attempt.json")
+	m := parseDeployEnvelope(t, out)
+	if m["status"] != clijson.StatusFailed {
+		t.Fatalf("status = %v", m["status"])
+	}
+	if m["receipt_path"] != "/tmp/attempt.json" {
+		t.Fatalf("receipt_path = %v", m["receipt_path"])
+	}
+	issues, _ := m["issues"].([]any)
+	first, _ := issues[0].(map[string]any)
+	if first["code"] != clijson.CodeDeployHealthTimeout {
 		t.Fatalf("code = %v", first["code"])
 	}
 }

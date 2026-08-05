@@ -21,11 +21,14 @@ type Options struct {
 	Quiet bool
 	// Out is the writer for progress when Quiet is false. If nil, os.Stdout is used.
 	Out io.Writer
-	// ReceiptPath, if non-empty, is the path for a deploy receipt JSON written only after a fully successful deploy.
+	// ReceiptPath, if non-empty, is the path for a deploy receipt JSON.
+	// After a fully successful deploy, a status=ok receipt is written.
+	// On HealthGateFailure (after deploy has started), a status=failed attempt receipt is written.
 	// When ReceiptPath is an existing directory or ends with "/", a unique file
 	// <dir>/<UTC>-<deploy_id>.json is written instead.
 	ReceiptPath string
-	// WrittenReceiptPath, when non-nil, is set to the absolute path of the receipt file after a successful write.
+	// WrittenReceiptPath, when non-nil, is set to the absolute path of the receipt file after a successful write
+	// (success or in-scope attempt receipt).
 	WrittenReceiptPath *string
 }
 
@@ -34,7 +37,7 @@ type Options struct {
 //  2. prepareNetworks
 //  3. prepareVolumes
 //  4. deployServicesInOrder
-//  5. writeDeployReceipt (when --receipt set)
+//  5. writeDeployReceipt (when --receipt set) or attempt receipt on HealthGateFailure
 func Deploy(c *spec.Contract, contractFile string, project string, opt Options) error {
 	ctx, err := newDeployContext(c, contractFile, project, opt)
 	if err != nil {
@@ -52,6 +55,7 @@ func Deploy(c *spec.Contract, contractFile string, project string, opt Options) 
 
 	order, err := deployServicesInOrder(ctx, volMap)
 	if err != nil {
+		_ = maybeWriteAttemptReceipt(ctx, order, err)
 		return err
 	}
 

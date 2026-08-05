@@ -20,6 +20,25 @@ func TestDeployOutcome_healthTimeout(t *testing.T) {
 	if d.Issues[0].Code != CodeDeployHealthTimeout || d.Issues[0].Service != "api" {
 		t.Fatalf("issue %+v", d.Issues[0])
 	}
+	if d.ReceiptPath != "" {
+		t.Fatalf("expected empty receipt_path, got %q", d.ReceiptPath)
+	}
+}
+
+func TestDeployOutcome_failedWithAttemptReceiptPath(t *testing.T) {
+	err := &deploy.HealthGateFailure{
+		Service:      "api",
+		ProbeKind:    deploy.ProbeHTTP,
+		FailureClass: deploy.HealthFailureTimeout,
+		Message:      "health check failed: timeout",
+	}
+	d := DeployOutcome("/c/p.yaml", "x", nil, nil, "/tmp/attempt.json", err, false)
+	if d.Status != StatusFailed || d.ReceiptPath != "/tmp/attempt.json" {
+		t.Fatalf("%+v", d)
+	}
+	if d.Issues[0].Code != CodeDeployHealthTimeout {
+		t.Fatalf("issue %+v", d.Issues[0])
+	}
 }
 
 func TestDeployOutcome_externalDepUnhealthy(t *testing.T) {

@@ -14,10 +14,12 @@ import (
 const CurrentFormatVersion = 1
 
 // StatusOK is the status written on successful deploy receipts (evidence foundation).
-// Other outcomes are reserved for later failure/attempt receipts.
 const StatusOK = "ok"
 
-// Receipt records a successful Podbay deploy for agents and CI (v1).
+// StatusFailed is the status written on failure/attempt receipts (health-gate and related).
+const StatusFailed = "failed"
+
+// Receipt records a Podbay deploy attempt for agents and CI (v1).
 // Evidence fields (DeployID, ContractDigest, Status, DeployServices, DependentsExpand)
 // are optional on decode so pre-Sprint-34 receipts remain valid; new writers should set them.
 type Receipt struct {
@@ -31,12 +33,33 @@ type Receipt struct {
 	DeployID string `json:"deploy_id,omitempty"`
 	// ContractDigest is sha256: hex of the contract file bytes used for deploy (optional on legacy).
 	ContractDigest string `json:"contract_digest,omitempty"`
-	// Status is "ok" on successful writes; empty on legacy receipts.
+	// Status is "ok" on successful writes, "failed" on attempt receipts; empty on legacy receipts.
 	Status string `json:"status,omitempty"`
 	// DeployServices lists partial-deploy roots when selection applied (same as deploy --json).
 	DeployServices []string `json:"deploy_services,omitempty"`
 	// DependentsExpand is true when partial roots were set and --dependents was used.
 	DependentsExpand bool `json:"dependents_expand,omitempty"`
+	// Failure holds attempt-receipt summary fields when Status is failed (optional on decode).
+	Failure *FailureSummary `json:"failure,omitempty"`
+}
+
+// FailureSummary records why an attempt receipt was written (health-gate aligned).
+// Fields are optional on decode; writers should set Code and Message when known.
+type FailureSummary struct {
+	// Service is the service that failed the health gate (or external dep name).
+	Service string `json:"service,omitempty"`
+	// Code is a stable issue code (e.g. deploy_health_timeout, deploy_health_probe_failed).
+	Code string `json:"code,omitempty"`
+	// Class is timeout or probe_error when known.
+	Class string `json:"class,omitempty"`
+	// ProbeKind is http or exec when known.
+	ProbeKind string `json:"probe_kind,omitempty"`
+	// Message is a human/agent-readable failure detail.
+	Message string `json:"message,omitempty"`
+	// ExternalDep is true when the failure is for a dependency outside the partial deploy set.
+	ExternalDep bool `json:"external_dep,omitempty"`
+	// RequestedBy is the partial-deploy service that triggered an external dependency health wait.
+	RequestedBy string `json:"requested_by,omitempty"`
 }
 
 // EnvVar is one container environment variable captured on the receipt (optional).
@@ -90,8 +113,13 @@ func Validate(r *Receipt) error {
 		}
 	}
 	// Evidence fields are optional (legacy receipts omit them). When present, constrain shape.
-	if r.Status != "" && r.Status != StatusOK {
-		return fmt.Errorf("receipt: unsupported status %q (want %q or empty)", r.Status, StatusOK)
+	if r.Status != "" && r.Status != StatusOK && r.Status != StatusFailed {
+		return fmt.Errorf("receipt: unsupported status %q (want %q, %q, or empty)", r.Status, StatusOK, StatusFailed)
+	}
+	if r.Failure != nil {
+		if err := validateFailureSummary(r.Failure); err != nil {
+			return err
+		}
 	}
 	if r.ContractDigest != "" && !strings.HasPrefix(r.ContractDigest, "sha256:") {
 		return fmt.Errorf("receipt: contract_digest must start with sha256:")
@@ -101,6 +129,25 @@ func Validate(r *Receipt) error {
 		if trimmed == "" || trimmed != r.DeployID {
 			return fmt.Errorf("receipt: deploy_id must be non-empty without surrounding whitespace")
 		}
+	}
+	return nil
+}
+
+func validateFailureSummary(f *FailureSummary) error {
+	if f == nil {
+		return nil
+	}
+	if f.Code != "" {
+		trimmed := strings.TrimSpace(f.Code)
+		if trimmed == "" || trimmed != f.Code {
+			return fmt.Errorf("receipt: failure.code must be non-empty without surrounding whitespace")
+		}
+	}
+	if f.Class != "" && f.Class != "timeout" && f.Class != "probe_error" {
+		return fmt.Errorf("receipt: failure.class unsupported %q (want timeout, probe_error, or empty)", f.Class)
+	}
+	if f.ProbeKind != "" && f.ProbeKind != "http" && f.ProbeKind != "exec" {
+		return fmt.Errorf("receipt: failure.probe_kind unsupported %q (want http, exec, or empty)", f.ProbeKind)
 	}
 	return nil
 }

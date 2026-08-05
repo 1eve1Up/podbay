@@ -41,6 +41,7 @@ Use "receipt list <dir>" to inventory receipts in a directory (newest first).`,
 
 func receiptListCmd() *cobra.Command {
 	var jsonOut bool
+	var statusFilter string
 	cmd := &cobra.Command{
 		Use:   "list <dir>",
 		Args:  cobra.ExactArgs(1),
@@ -49,6 +50,8 @@ func receiptListCmd() *cobra.Command {
 
 Newest generated_at first. Non-receipt JSON files are skipped.
 
+--status ok|failed filters the inventory (ok also matches legacy receipts with empty status).
+
 With --json: kind receipt_list with receipts[] rows (path, deploy_id, generated_at, project, status, service_count).`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -56,6 +59,10 @@ With --json: kind receipt_list with receipts[] rows (path, deploy_id, generated_
 			abs, absErr := filepath.Abs(dir)
 			if absErr != nil {
 				abs = dir
+			}
+			statusFilter = strings.TrimSpace(statusFilter)
+			if statusFilter != "" && statusFilter != receipt.StatusOK && statusFilter != receipt.StatusFailed {
+				return fmt.Errorf("receipt list: unsupported --status %q (want ok, failed, or empty)", statusFilter)
 			}
 			entries, skipped, err := receipt.ListDir(dir)
 			if err != nil {
@@ -70,6 +77,7 @@ With --json: kind receipt_list with receipts[] rows (path, deploy_id, generated_
 				}
 				return err
 			}
+			entries = receipt.FilterEntries(entries, statusFilter)
 			if jsonOut {
 				doc := clijson.ReceiptListSuccess(abs, entries, skipped)
 				raw, mErr := clijson.MarshalIndent(doc)
@@ -100,6 +108,7 @@ With --json: kind receipt_list with receipts[] rows (path, deploy_id, generated_
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit versioned JSON (kind receipt_list)")
+	cmd.Flags().StringVar(&statusFilter, "status", "", "filter by status: ok or failed")
 	return cmd
 }
 
@@ -159,6 +168,30 @@ func runReceiptRead(cmd *cobra.Command, p string, jsonOut bool) error {
 	}
 	if rec.Status != "" {
 		fmt.Fprintf(cmd.OutOrStdout(), "Status:      %s\n", rec.Status)
+	}
+	if rec.Failure != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "Failure:\n")
+		if rec.Failure.Code != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "  Code:      %s\n", rec.Failure.Code)
+		}
+		if rec.Failure.Service != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "  Service:   %s\n", rec.Failure.Service)
+		}
+		if rec.Failure.Class != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "  Class:     %s\n", rec.Failure.Class)
+		}
+		if rec.Failure.ProbeKind != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "  Probe:     %s\n", rec.Failure.ProbeKind)
+		}
+		if rec.Failure.Message != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "  Message:   %s\n", rec.Failure.Message)
+		}
+		if rec.Failure.ExternalDep {
+			fmt.Fprintf(cmd.OutOrStdout(), "  External:  true\n")
+			if rec.Failure.RequestedBy != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "  Requested: %s\n", rec.Failure.RequestedBy)
+			}
+		}
 	}
 	if len(rec.DeployServices) > 0 {
 		fmt.Fprintf(cmd.OutOrStdout(), "Deploy svcs: %s\n", strings.Join(rec.DeployServices, ", "))

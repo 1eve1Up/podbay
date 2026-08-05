@@ -15,7 +15,7 @@ Podbay gives agents:
 - **A deploy gate**: `podbay deploy --json --receipt ...` with structured success/failure.
 - **A drift gate**: `podbay diff --json` to prove runtime matches the contract.
 - **A log gate**: `podbay logs --json` captures container logs for one or many resolved services in one document (`log_entries[]`; not combinable with `--follow`).
-- **A durable receipt**: a success-only evidence object (`deploy_id`, `contract_digest`, `status: ok`, optional selection) that can be stored under a project directory, listed with `podbay receipt list`, and compared later without narrating from memory. Failure evidence remains `logs` / `explain` JSON (failure receipts not shipped yet).
+- **A durable receipt**: an evidence object (`deploy_id`, `contract_digest`, `status`, optional selection) stored under a project directory and listed with `podbay receipt list`. Success writes `status: ok`; health-gate failures with `--receipt` write `status: failed` attempt receipts (plus a `failure` summary). Follow up with `logs` / `explain` JSON for live diagnosis.
 - **A shared language**: builder, reviewer, test, deploy, security, and ops agents can all reason over the same file and JSON envelopes.
 
 That is the core difference from ordinary Compose usage: **Podbay treats runtime intent as an artifact agents can be held accountable to.**
@@ -50,7 +50,7 @@ For multi-service stacks, agents often deploy **one root** plus **`--dependents`
 | Step | Command | On failure |
 | --- | --- | --- |
 | Preflight | `podbay validate -f <contract> [roots...] --json` | Fix contract; do not deploy |
-| Deploy | `podbay deploy … --dependents --json --receipt <file-or-dir/>` | Parse `issues[].code` (see health table in [cli-json.md](cli-json.md)); on success read `receipt_path` |
+| Deploy | `podbay deploy … --dependents --json --receipt <file-or-dir/>` | Parse `issues[].code` (see health table in [cli-json.md](cli-json.md)); on health-gate fail read `receipt_path` for the attempt receipt when `--receipt` was set |
 | Drift | `podbay diff … --json` (same roots **and same `--profile` set**) | `drift == true` → inspect or redeploy |
 | Evidence | `podbay logs … --json` (same roots **and same `--profile` set**) | `log_entries[]` per resolved service |
 | Diagnose | `podbay explain … --json` (same roots **and same `--profile` set**) | Factual runtime/health context (not root cause) |
@@ -62,9 +62,10 @@ When the deploy used `--profile`, pass those flags again on `diff` / `ps` / `exp
 
 After containers start but health never passes:
 
-1. Read **`deploy --json`** `issues[]` for `deploy_health_timeout`, `deploy_health_probe_failed`, or `deploy_external_dep_unhealthy`; use **`service`** on the issue.
-2. Run **`logs --json`** and **`explain --json`** with that service (and **`--dependents`** when downstream services are in the partial set). **`explain`** batches container inspect via `runtimestate.InspectContainers`, then runs **single-shot** health probes capped at **5 seconds per probe** (proximate-network diagnostic budget)—not deploy’s `--health-timeout` retry window or full contract `health.timeout`.
-3. Tear down with **`down` / `teardown --json`** so the next attempt starts clean.
+1. Read **`deploy --json`** `issues[]` for `deploy_health_timeout`, `deploy_health_probe_failed`, or `deploy_external_dep_unhealthy`; use **`service`** on the issue. When `--receipt` was set, also read **`receipt_path`** for the durable attempt receipt (`status: failed`, `failure` summary).
+2. Optionally inventory attempts: `podbay receipt list <dir> --status failed --json`.
+3. Run **`logs --json`** and **`explain --json`** with that service (and **`--dependents`** when downstream services are in the partial set). **`explain`** batches container inspect via `runtimestate.InspectContainers`, then runs **single-shot** health probes capped at **5 seconds per probe** (proximate-network diagnostic budget)—not deploy’s `--health-timeout` retry window or full contract `health.timeout`.
+4. Tear down with **`down` / `teardown --json`** so the next attempt starts clean.
 
 ### Runnable demo
 

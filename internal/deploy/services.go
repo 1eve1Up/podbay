@@ -73,7 +73,7 @@ func deployServicesInOrder(ctx *deployContext, volMap map[string]string) ([]stri
 		}
 
 		if err := waitExternalDependsOn(c, r, ctx.active, name, svc, ctx.hostSubst, ctx.partial, ctx.out, opt.Quiet, opt.SkipHealthWait, opt.HealthTimeout); err != nil {
-			return nil, err
+			return order, err
 		}
 
 		cname := r.ContainerName(name)
@@ -81,11 +81,11 @@ func deployServicesInOrder(ctx *deployContext, volMap map[string]string) ([]stri
 			logf("  Creating container %s ...", cname)
 		}
 		if err := r.RemoveService(name); err != nil {
-			return nil, err
+			return order, err
 		}
 		logicalNets, err := spec.EffectiveServiceNetworks(c, name, svc)
 		if err != nil {
-			return nil, fmt.Errorf("service %q: %w", name, err)
+			return order, fmt.Errorf("service %q: %w", name, err)
 		}
 		var podNets []string
 		if logicalNets == nil {
@@ -96,7 +96,7 @@ func deployServicesInOrder(ctx *deployContext, volMap map[string]string) ([]stri
 			}
 		}
 		if err := r.StartService(name, svc, podNets, volMap, env); err != nil {
-			return nil, fmt.Errorf("service %q: %w", name, err)
+			return order, fmt.Errorf("service %q: %w", name, err)
 		}
 		if !opt.Quiet {
 			logf("  Started %s", cname)
@@ -109,7 +109,7 @@ func deployServicesInOrder(ctx *deployContext, volMap map[string]string) ([]stri
 			continue
 		}
 		if err := waitServiceHealth(ctx.out, opt.Quiet, name, cname, svc, opt.HealthTimeout); err != nil {
-			return nil, err
+			return order, err
 		}
 	}
 	if !opt.Quiet {

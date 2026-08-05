@@ -74,10 +74,11 @@ Runtime commands use **`spec`** only. **`import compose`** uses composefile → 
 | --- | --- |
 | **`format_version`** | Integer schema version on versioned JSON documents (currently **1**). |
 | **`kind`** | Discriminator: `validate`, `deploy`, `diff`, `receipt_read`, `receipt_list`, `teardown`, `import_compose`, `logs`, etc. |
-| **`deploy_id`** | UUID on a success deploy receipt; correlates deploy JSON `receipt_path` with a durable evidence file. |
+| **`deploy_id`** | UUID on a deploy receipt (success or attempt); correlates deploy JSON `receipt_path` with a durable evidence file. |
 | **`contract_digest`** | `sha256:` hex of the contract **file bytes** used for deploy (content identity; path remains a local locator). |
-| **`receipt_list`** | JSON kind for `podbay receipt list --json`: newest-first inventory of valid receipts in a directory. |
-| **`status`** | Usually **`ok`** or **`failed`**. |
+| **`receipt_list`** | JSON kind for `podbay receipt list --json`: newest-first inventory of valid receipts in a directory (optional `--status` filter). |
+| **`failure`** | Optional object on attempt receipts (`status: failed`): service, code, class, probe_kind, message, external-dep context. |
+| **`status`** | Usually **`ok`** or **`failed`** (receipts and CLI envelopes). |
 | **`issues[]`** | Structured failures with **`code`**, **`level`**, **`message`**, optional **`service`**. |
 | **`issues[].code`** | Stable machine identifier (e.g. `deploy_health_timeout`, `import_include_cycle`). See [cli-json.md](cli-json.md). |
 | **`contract_path`** | Absolute path to the contract file in most kinds; for **`import_compose`**, names the **Compose source** file, not output `podbay.yaml`. |

@@ -116,11 +116,78 @@ func TestEncodeDecode_withEvidenceFields(t *testing.T) {
 	}
 }
 
+func TestValidate_acceptsOKAndFailedStatus(t *testing.T) {
+	r := New("/x.yaml", "p", nil, []ServiceRecord{{Service: "s", ContainerName: "c"}})
+	for _, st := range []string{"", StatusOK, StatusFailed} {
+		r.Status = st
+		if err := Validate(r); err != nil {
+			t.Fatalf("status %q: %v", st, err)
+		}
+	}
+	if StatusFailed != "failed" {
+		t.Fatalf("StatusFailed = %q, want failed", StatusFailed)
+	}
+}
+
 func TestValidate_rejectsUnsupportedStatus(t *testing.T) {
 	r := New("/x.yaml", "p", nil, []ServiceRecord{{Service: "s", ContainerName: "c"}})
-	r.Status = "failed"
+	r.Status = "pending"
 	if err := Validate(r); err == nil {
 		t.Fatal("expected unsupported status error")
+	}
+}
+
+func TestEncodeDecode_attemptFailureSummary(t *testing.T) {
+	fixed := time.Date(2026, 8, 4, 18, 0, 0, 0, time.UTC)
+	r := &Receipt{
+		FormatVersion:  CurrentFormatVersion,
+		GeneratedAt:    fixed,
+		ContractPath:   "/app/podbay.yaml",
+		Project:        "demo",
+		Services:       []ServiceRecord{{Service: "api", ContainerName: "podbay_demo_api"}},
+		DeployID:       "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+		ContractDigest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		Status:         StatusFailed,
+		DeployServices: []string{"api"},
+		Failure: &FailureSummary{
+			Service:     "api",
+			Code:        "deploy_health_timeout",
+			Class:       "timeout",
+			ProbeKind:   "http",
+			Message:     `service "api": health check timed out`,
+			ExternalDep: false,
+		},
+	}
+	data, err := Encode(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := Decode(data)
+	if err != nil {
+		t.Fatalf("decode: %v\n%s", err, string(data))
+	}
+	if got.Status != StatusFailed || got.Failure == nil {
+		t.Fatalf("attempt mismatch %+v", got)
+	}
+	if got.Failure.Code != "deploy_health_timeout" || got.Failure.Class != "timeout" || got.Failure.Service != "api" {
+		t.Fatalf("failure summary mismatch %+v", got.Failure)
+	}
+}
+
+func TestValidate_rejectsBadFailureClass(t *testing.T) {
+	r := New("/x.yaml", "p", nil, []ServiceRecord{{Service: "s", ContainerName: "c"}})
+	r.Status = StatusFailed
+	r.Failure = &FailureSummary{Class: "boom"}
+	if err := Validate(r); err == nil {
+		t.Fatal("expected bad failure.class error")
+	}
+}
+
+func TestValidate_successWithoutFailureSummary(t *testing.T) {
+	r := New("/x.yaml", "p", nil, []ServiceRecord{{Service: "s", ContainerName: "c"}})
+	r.Status = StatusOK
+	if err := Validate(r); err != nil {
+		t.Fatal(err)
 	}
 }
 

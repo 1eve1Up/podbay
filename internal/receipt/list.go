@@ -84,3 +84,36 @@ func ListDir(dir string) (entries []ListEntry, skipped []string, err error) {
 	}
 	return entries, skipped, nil
 }
+
+// MatchStatus reports whether entry status matches filter.
+// filter "" matches everything. filter "ok" also matches legacy empty status.
+// filter "failed" matches only StatusFailed.
+func MatchStatus(entryStatus, filter string) bool {
+	filter = strings.TrimSpace(filter)
+	if filter == "" {
+		return true
+	}
+	switch filter {
+	case StatusOK:
+		return entryStatus == "" || entryStatus == StatusOK
+	case StatusFailed:
+		return entryStatus == StatusFailed
+	default:
+		return entryStatus == filter
+	}
+}
+
+// FilterEntries returns entries whose Status matches filter (see MatchStatus).
+func FilterEntries(entries []ListEntry, filter string) []ListEntry {
+	filter = strings.TrimSpace(filter)
+	if filter == "" {
+		return entries
+	}
+	out := make([]ListEntry, 0, len(entries))
+	for _, e := range entries {
+		if MatchStatus(e.Status, filter) {
+			out = append(out, e)
+		}
+	}
+	return out
+}

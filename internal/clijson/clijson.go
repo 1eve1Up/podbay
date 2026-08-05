@@ -285,6 +285,7 @@ func DeployOutcome(contractPath, project string, profiles, deployServices []stri
 			Profiles:         profiles,
 			DeployServices:   ds,
 			DependentsExpand: depExpand,
+			ReceiptPath:      receiptPath,
 			Issues:           IssuesFromDeployError(deployErr),
 		}
 	}
