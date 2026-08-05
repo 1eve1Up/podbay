@@ -24,9 +24,9 @@ Podbay fixes that.
 
 It is the system of record for how an application is supposed to exist at runtime—and whether that is actually true.
 
-## Implementation Status: v2026.6.1 Public Preview
+## Implementation Status: v2026.7.0 Public Preview
 
-`v2026.6.1` is the current public June 2026 preview release. It is usable for narrow Podman stacks, but the `podbay.yaml` contract is not yet 1.0-stable.
+`v2026.7.0` is the current public August 2026 preview release. It is usable for narrow Podman stacks, but the `podbay.yaml` contract is not yet 1.0-stable.
 
 Podbay uses calendar-based release versions. Calendar versions identify releases; they are not a substitute for compatibility promises. Until a future `v2026.x-stable` or `v1.0` commitment:
 
@@ -35,20 +35,21 @@ Podbay uses calendar-based release versions. Calendar versions identify releases
 - **CLI compatibility:** core commands are intended to stay scriptable, especially with `--json`, but flags and output details may still change during public preview.
 - **Migration policy:** release notes will call out breaking changes and provide migration guidance when contract, receipt, or CLI behavior changes.
 
-Shipped in public preview through `v2026.6.1`:
+Shipped in public preview through `v2026.7.0`:
 
 - Podman execution backend
 - preflight validation
 - Compose import for a documented subset
-- deploy receipts
-- contract-vs-runtime and receipt-vs-receipt diff
+- deploy receipts (success evidence + health-gate attempt receipts; directory store; `receipt list` / `last-ok` / `handoff`)
+- contract-vs-runtime and receipt-vs-receipt diff (including `--vs-last-ok`)
 - versioned JSON output for automation
 - factual runtime inspection through `podbay explain`
+- partial-deploy agent loop (roots, `--dependents`, structured health-gate failures, batch `logs`)
 
-Not shipped in public preview through `v2026.6.1`:
+Not shipped in public preview through `v2026.7.0`:
 
 - Quadlet/systemd compilation
-- causal/root-cause diagnosis in `podbay explain`
+- causal/root-cause diagnosis in `podbay explain` (structured receipt handoff next-steps are not diagnosis)
 - automatic rollback, SBOM/provenance, or cryptographic guarantees from receipts
 - built-in multi-agent locking, merge semantics, or workflow coordination
 - Kubernetes replacement behavior, cluster scheduling, or a long-running control plane
@@ -189,7 +190,7 @@ Shipped today:
 
 - Podman
 
-Planned / not shipped in public preview through `v2026.6.1`:
+Planned / not shipped in public preview through `v2026.7.0`:
 
 - Quadlet / systemd
 
@@ -205,9 +206,9 @@ Shipped today: factual runtime inspection.
 - "What changed?"
 - "What is broken?"
 
-Planned / not shipped in public preview through `v2026.6.1`: causal diagnosis.
+Planned / not shipped in public preview through `v2026.7.0`: causal diagnosis in `podbay explain`.
 
-- "What should I do next?"
+- "What should I do next?" as root-cause inference (structured `receipt handoff` next-action hints ship; they are not diagnosis)
 
 ## 8. Multi-Agent Context
 
@@ -263,7 +264,7 @@ podbay deploy
 podbay explain
 ```
 
-Current `v2026.6.1` behavior: factual runtime state, health probes, dependency context, and unexpected containers. It does not infer root cause.
+Current `v2026.7.0` behavior: factual runtime state, health probes, dependency context, and unexpected containers. It does not infer root cause. For deploy evidence history and structured next-step hints, use receipts (`list` / `last-ok` / `handoff`) — see [docs/cli-json.md](docs/cli-json.md).
 
 Future diagnostic direction:
 

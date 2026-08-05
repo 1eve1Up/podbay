@@ -45,8 +45,8 @@ Podbay uses calendar-based release versions. Calendar versions identify releases
 - Imports many Compose files with `podbay import compose` so existing projects can migrate incrementally.
 - Validates before running with `podbay validate`, including dependency graph, port checks, paths, commands, profiles, network rules, and healthy-dependency requirements.
 - Deploys with Podman using deterministic names and labels: `podbay_<project>_<service>` plus `podbay.project` / `podbay.service`.
-- Writes deploy receipts with `podbay deploy --receipt receipt.json` so a deployment has a durable machine-readable artifact.
-- Compares contract vs runtime with `podbay diff`, or receipt vs receipt with `podbay diff before.json after.json`.
+- Writes deploy receipts with `podbay deploy --receipt` (file or directory store): success evidence and health-gate attempt receipts, listable via `podbay receipt list` / `last-ok` / `handoff`.
+- Compares contract vs runtime with `podbay diff`, receipt vs receipt with `podbay diff before.json after.json`, or `--vs-last-ok` against a receipt store.
 - Explains runtime state with `podbay explain`, including health probes and dependency context.
 - Emits versioned JSON for agents and CI on key commands: `validate`, `deploy`, `diff`, `receipt`, `teardown`, `down`, and `logs`.
 - Handles practical Podman parity issues that otherwise waste operator and agent time: named volume `:U`, Podman Machine DNS, `host-gateway`, `host.docker.internal` / `host.containers.internal`, network MTU, and health/log failure hints.

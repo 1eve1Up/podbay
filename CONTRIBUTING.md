@@ -61,7 +61,7 @@ Package boundaries and the import pipeline are documented in [docs/architecture.
 
 ## Stability Expectations
 
-Podbay uses calendar-based release versions. `v2026.6.2` is the current public preview, not a 1.0 compatibility commitment.
+Podbay uses calendar-based release versions. `v2026.7.0` is the current public preview, not a 1.0 compatibility commitment.
 
 Until a future `v2026.x-stable` or `v1.0` commitment:
 

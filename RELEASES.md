@@ -1,5 +1,22 @@
 # Podbay Releases
 
+## v2026.7.0
+
+**Date:** August 2026  
+**Stability:** public preview  
+**Contract status:** evolving  
+
+### Shipped scope (additions since `v2026.6.2`)
+
+**Receipts 2.0** — deployments become evidence; evidence becomes history; history becomes intelligence:
+
+- **Evidence foundation** — success receipts include `deploy_id`, `contract_digest`, `status: ok`, and partial-selection fields; `--receipt` directory mode writes `<dir>/<UTC>-<deploy_id>.json`; batched receipt inspect; `podbay receipt list` (`kind: receipt_list`).
+- **Failure attempts** — health-gate failures with `--receipt` write `status: failed` attempt receipts with a `failure` summary; failed `deploy --json` includes `receipt_path`; `receipt list --status ok|failed`.
+- **Intelligence** — `podbay receipt last-ok`, `podbay diff --vs-last-ok`, and `podbay receipt handoff --json` (structured next-action hints; not automatic remediation or root-cause diagnosis).
+- **Docs / demos** — agent-loop, cli-json, contract, and glossary cover the receipt store and playbook; `examples/ci-receipt-demo.sh` and `examples/ci-receipt-intelligence-demo.sh`.
+
+Also included relative to `v2026.6.2`: explain probe timeouts, observability batch inspect (`diff` / `ps` / `explain`), deploy pipeline phase extraction, and docs corpus refinements landed on `main` after that tag.
+
 ## v2026.6.2
 
 **Date:** June 2026  

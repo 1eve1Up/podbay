@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Podbay is currently in public preview. The first public release is `v2026.5.0`; the latest public preview is `v2026.6.2`.
+Podbay is currently in public preview. The first public release is `v2026.5.0`; the latest public preview is `v2026.7.0`.
 
 Security fixes are prioritized for the latest public preview release. Until a future `v2026.x-stable` or `v1.0` compatibility commitment, the `podbay.yaml` contract, CLI behavior, and receipt formats may still evolve between releases.
 
