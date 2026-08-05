@@ -12,6 +12,7 @@ const (
 	CodeReceiptDiffLoadError   = "receipt_diff_load_error"
 	CodeReceiptDiffDecodeError = "receipt_diff_decode_error"
 	CodeReceiptDiffUsageError  = "receipt_diff_usage_error"
+	CodeReceiptNoLastOK        = "receipt_no_last_ok"
 )
 
 // ReceiptPairDiffOptions configures receipt-pair JSON emission (two-arg diff).

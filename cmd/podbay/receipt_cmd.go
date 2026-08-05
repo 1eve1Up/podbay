@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -25,17 +26,21 @@ Without --json: print a short human summary (project, contract path, evidence fi
 
 With --json: print a versioned envelope (kind receipt_read, format_version) containing the validated receipt.
 
-Use "receipt list <dir>" to inventory receipts in a directory (newest first).`,
+Use "receipt list <dir>" to inventory receipts in a directory (newest first).
+Use "receipt last-ok <dir>" to resolve the newest successful receipt in a store.
+Use "receipt handoff <current.json> --store <dir>" for a structured agent handoff summary.`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				return fmt.Errorf("receipt: path required (or use: podbay receipt list <dir>)")
+				return fmt.Errorf("receipt: path required (or use: podbay receipt list|last-ok|handoff)")
 			}
 			return runReceiptRead(cmd, args[0], jsonOut)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit versioned JSON envelope (format_version) for agents and CI")
 	cmd.AddCommand(receiptListCmd())
+	cmd.AddCommand(receiptLastOKCmd())
+	cmd.AddCommand(receiptHandoffCmd())
 	return cmd
 }
 
@@ -109,6 +114,154 @@ With --json: kind receipt_list with receipts[] rows (path, deploy_id, generated_
 	}
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit versioned JSON (kind receipt_list)")
 	cmd.Flags().StringVar(&statusFilter, "status", "", "filter by status: ok or failed")
+	return cmd
+}
+
+func receiptLastOKCmd() *cobra.Command {
+	var jsonOut bool
+	cmd := &cobra.Command{
+		Use:   "last-ok <dir>",
+		Args:  cobra.ExactArgs(1),
+		Short: "Resolve the newest successful receipt in a directory",
+		Long: `Resolve the newest deploy receipt with status ok (legacy empty status counts as ok).
+
+Without --json: print the absolute receipt path.
+
+With --json: kind receipt_last_ok. When found, status ok and receipt_path set.
+When no prior ok exists, status failed with issue code receipt_no_last_ok (no fake path).`,
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			dir := args[0]
+			abs, absErr := filepath.Abs(dir)
+			if absErr != nil {
+				abs = dir
+			}
+			entry, err := receipt.LastOK(dir)
+			if err != nil {
+				code := "receipt_last_ok_error"
+				if errors.Is(err, receipt.ErrNoLastOK) {
+					code = "receipt_no_last_ok"
+				}
+				if jsonOut {
+					doc := clijson.ReceiptLastOKFailure(abs, code, err)
+					raw, mErr := clijson.MarshalIndent(doc)
+					if mErr != nil {
+						return mErr
+					}
+					fmt.Fprintln(cmd.OutOrStdout(), strings.TrimSpace(string(raw)))
+					os.Exit(1)
+				}
+				return err
+			}
+			if jsonOut {
+				doc := clijson.ReceiptLastOKSuccess(abs, *entry)
+				raw, mErr := clijson.MarshalIndent(doc)
+				if mErr != nil {
+					return mErr
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), strings.TrimSpace(string(raw)))
+				return nil
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), entry.Path)
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit versioned JSON (kind receipt_last_ok)")
+	return cmd
+}
+
+func receiptHandoffCmd() *cobra.Command {
+	var jsonOut bool
+	var storeDir string
+	cmd := &cobra.Command{
+		Use:   "handoff <current-receipt.json>",
+		Args:  cobra.ExactArgs(1),
+		Short: "Emit a structured agent handoff summary for a receipt",
+		Long: `Build a handoff summary from a current receipt and optional receipt store directory.
+
+With --store <dir>: resolve last ok, compare via pair-diff, and include drift / no_prior_ok.
+
+With --json: kind receipt_handoff containing handoff{} (identity, failure, last_ok_path or no_prior_ok, next_actions).
+Human output prints a short summary; --json is the agent contract.
+
+Handoff is structured next-steps only — not automatic remediation.`,
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			currentPath := args[0]
+			abs, absErr := filepath.Abs(currentPath)
+			if absErr != nil {
+				abs = currentPath
+			}
+			data, err := os.ReadFile(currentPath)
+			if err != nil {
+				if jsonOut {
+					doc := clijson.ReceiptHandoffFailure(abs, err)
+					raw, mErr := clijson.MarshalIndent(doc)
+					if mErr != nil {
+						return mErr
+					}
+					fmt.Fprintln(cmd.OutOrStdout(), strings.TrimSpace(string(raw)))
+					os.Exit(1)
+				}
+				return fmt.Errorf("receipt handoff: read %s: %w", currentPath, err)
+			}
+			rec, err := receipt.Decode(data)
+			if err != nil {
+				if jsonOut {
+					doc := clijson.ReceiptHandoffFailure(abs, err)
+					raw, mErr := clijson.MarshalIndent(doc)
+					if mErr != nil {
+						return mErr
+					}
+					fmt.Fprintln(cmd.OutOrStdout(), strings.TrimSpace(string(raw)))
+					os.Exit(1)
+				}
+				return fmt.Errorf("receipt handoff: %w", err)
+			}
+			h, err := receipt.BuildHandoff(rec, abs, strings.TrimSpace(storeDir))
+			if err != nil {
+				if jsonOut {
+					doc := clijson.ReceiptHandoffFailure(abs, err)
+					raw, mErr := clijson.MarshalIndent(doc)
+					if mErr != nil {
+						return mErr
+					}
+					fmt.Fprintln(cmd.OutOrStdout(), strings.TrimSpace(string(raw)))
+					os.Exit(1)
+				}
+				return err
+			}
+			if jsonOut {
+				doc := clijson.ReceiptHandoffSuccess(h)
+				raw, mErr := clijson.MarshalIndent(doc)
+				if mErr != nil {
+					return mErr
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), strings.TrimSpace(string(raw)))
+				return nil
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Handoff status=%s deploy_id=%s\n", h.Status, h.DeployID)
+			if h.Failure != nil {
+				fmt.Fprintf(cmd.OutOrStdout(), "Failure: %s (%s)\n", h.Failure.Code, h.Failure.Service)
+			}
+			if h.NoPriorOK {
+				fmt.Fprintln(cmd.OutOrStdout(), "Last ok: (none)")
+			} else if h.LastOKPath != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Last ok: %s\n", h.LastOKPath)
+				if h.Drift != nil {
+					fmt.Fprintf(cmd.OutOrStdout(), "Drift:   %v\n", *h.Drift)
+				}
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "Next:")
+			for _, a := range h.NextActions {
+				fmt.Fprintf(cmd.OutOrStdout(), "  - %s\n", a)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Note: %s\n", h.RemediationNote)
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit versioned JSON (kind receipt_handoff)")
+	cmd.Flags().StringVar(&storeDir, "store", "", "receipt store directory for last-ok resolve and pair-diff")
 	return cmd
 }
 

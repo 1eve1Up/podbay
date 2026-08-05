@@ -73,10 +73,12 @@ Runtime commands use **`spec`** only. **`import compose`** uses composefile → 
 | Term | Meaning |
 | --- | --- |
 | **`format_version`** | Integer schema version on versioned JSON documents (currently **1**). |
-| **`kind`** | Discriminator: `validate`, `deploy`, `diff`, `receipt_read`, `receipt_list`, `teardown`, `import_compose`, `logs`, etc. |
+| **`kind`** | Discriminator: `validate`, `deploy`, `diff`, `receipt_read`, `receipt_list`, `receipt_last_ok`, `receipt_handoff`, `teardown`, `import_compose`, `logs`, etc. |
 | **`deploy_id`** | UUID on a deploy receipt (success or attempt); correlates deploy JSON `receipt_path` with a durable evidence file. |
 | **`contract_digest`** | `sha256:` hex of the contract **file bytes** used for deploy (content identity; path remains a local locator). |
 | **`receipt_list`** | JSON kind for `podbay receipt list --json`: newest-first inventory of valid receipts in a directory (optional `--status` filter). |
+| **`receipt_last_ok`** | JSON kind for `podbay receipt last-ok --json`: path of the newest ok receipt, or failure with `receipt_no_last_ok`. |
+| **`receipt_handoff`** | JSON kind for `podbay receipt handoff --json`: structured next-steps summary (identity, failure, last-ok/drift, `next_actions`) — not automatic remediation. |
 | **`failure`** | Optional object on attempt receipts (`status: failed`): service, code, class, probe_kind, message, external-dep context. |
 | **`status`** | Usually **`ok`** or **`failed`** (receipts and CLI envelopes). |
 | **`issues[]`** | Structured failures with **`code`**, **`level`**, **`message`**, optional **`service`**. |

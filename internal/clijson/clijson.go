@@ -16,13 +16,15 @@ const FormatVersion = 1
 
 // Kind identifies which command produced the document.
 const (
-	KindValidate    = "validate"
-	KindDeploy      = "deploy"
-	KindReceiptRead = "receipt_read"
-	KindReceiptList = "receipt_list"
-	KindDiff        = "diff"
-	KindTeardown    = "teardown"
-	KindLogs        = "logs"
+	KindValidate       = "validate"
+	KindDeploy         = "deploy"
+	KindReceiptRead    = "receipt_read"
+	KindReceiptList    = "receipt_list"
+	KindReceiptLastOK  = "receipt_last_ok"
+	KindReceiptHandoff = "receipt_handoff"
+	KindDiff           = "diff"
+	KindTeardown       = "teardown"
+	KindLogs           = "logs"
 )
 
 // Status is a coarse outcome for automation.
@@ -104,6 +106,8 @@ type Document struct {
 	Receipts       []ReceiptListEntry `json:"receipts,omitempty"`
 	// ReceiptListSkipped lists paths that were not valid receipts (best-effort).
 	ReceiptListSkipped []string `json:"receipt_list_skipped,omitempty"`
+	// Receipt handoff (KindReceiptHandoff): structured next-steps summary payload.
+	Handoff *receipt.HandoffSummary `json:"handoff,omitempty"`
 }
 
 // ReceiptListEntry is one inventory row for kind receipt_list.
@@ -372,6 +376,79 @@ func ReceiptListFailure(absDir string, err error) *Document {
 		Issues: []Issue{{
 			Level:   validate.LevelFail,
 			Code:    "receipt_list_error",
+			Message: msg,
+		}},
+	}
+}
+
+// ReceiptLastOKSuccess builds kind receipt_last_ok when a last-ok path was resolved.
+func ReceiptLastOKSuccess(absDir string, entry receipt.ListEntry) *Document {
+	return &Document{
+		FormatVersion:  FormatVersion,
+		Kind:           KindReceiptLastOK,
+		Status:         StatusOK,
+		ReceiptListDir: absDir,
+		ReceiptPath:    entry.Path,
+		Project:        entry.Project,
+		Receipts: []ReceiptListEntry{{
+			Path:         entry.Path,
+			DeployID:     entry.DeployID,
+			GeneratedAt:  entry.GeneratedAt,
+			Project:      entry.Project,
+			Status:       entry.Status,
+			ServiceCount: entry.ServiceCount,
+		}},
+	}
+}
+
+// ReceiptLastOKFailure builds a failed receipt_last_ok document (list/IO errors or no prior ok).
+func ReceiptLastOKFailure(absDir string, code string, err error) *Document {
+	msg := "receipt last-ok failed"
+	if err != nil {
+		msg = err.Error()
+	}
+	if code == "" {
+		code = "receipt_last_ok_error"
+	}
+	return &Document{
+		FormatVersion:  FormatVersion,
+		Kind:           KindReceiptLastOK,
+		Status:         StatusFailed,
+		ReceiptListDir: absDir,
+		Issues: []Issue{{
+			Level:   validate.LevelFail,
+			Code:    code,
+			Message: msg,
+		}},
+	}
+}
+
+// ReceiptHandoffSuccess builds kind receipt_handoff with a handoff summary payload.
+func ReceiptHandoffSuccess(h *receipt.HandoffSummary) *Document {
+	return &Document{
+		FormatVersion: FormatVersion,
+		Kind:          KindReceiptHandoff,
+		Status:        StatusOK,
+		ReceiptPath:   h.CurrentPath,
+		Project:       h.Project,
+		Handoff:       h,
+	}
+}
+
+// ReceiptHandoffFailure builds a failed receipt_handoff document.
+func ReceiptHandoffFailure(absCurrent string, err error) *Document {
+	msg := "receipt handoff failed"
+	if err != nil {
+		msg = err.Error()
+	}
+	return &Document{
+		FormatVersion: FormatVersion,
+		Kind:          KindReceiptHandoff,
+		Status:        StatusFailed,
+		ReceiptPath:   absCurrent,
+		Issues: []Issue{{
+			Level:   validate.LevelFail,
+			Code:    "receipt_handoff_error",
 			Message: msg,
 		}},
 	}

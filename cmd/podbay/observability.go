@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -266,8 +267,9 @@ func diffCmd(fileFlag *string, defaultFile string) *cobra.Command {
 	receiptDiffShowEnv := false
 	dependents := false
 	mode := ""
+	vsLastOKDir := ""
 	cmd := &cobra.Command{
-		Use:   "diff [contract-path] [service ...]|diff <receipt-a> <receipt-b>",
+		Use:   "diff [contract-path] [service ...]|diff <receipt-a> <receipt-b>|diff --vs-last-ok <dir> <current-receipt>",
 		Short: "Compare contract to Podman or compare two deploy receipts (drift detection)",
 		Long: `Two modes:
 
@@ -282,16 +284,26 @@ func diffCmd(fileFlag *string, defaultFile string) *cobra.Command {
     Compares the two recorded snapshots. --profile is not valid in this mode.
     Environment values in JSON output are redacted by default; --receipt-diff-show-env includes raw values (unsafe for CI logs).
 
+(3) Diff vs last ok — --vs-last-ok <dir> with exactly one current receipt file argument.
+    Resolves the newest ok receipt in <dir> (legacy empty status counts as ok) and compares it to the current receipt via the same pair-diff path.
+    When no prior ok exists: machine-readable failure (issue code receipt_no_last_ok); no false drift.
+
 With --json: print one versioned JSON document (format_version, kind diff) on stdout instead of plain text.
 Contract mode: inspect errors per service appear under issues[] with code diff_inspect_error.
 Receipt mode: structured payload under receipt_pair; load/decode failures use receipt_diff_load_error or receipt_diff_decode_error.
 
 Exit codes:
   0  No drift — contract mode: every expected service is running and no extra project containers; receipt mode: compared receipt fields match.
-  1  Drift, invalid inputs, or (contract mode) Podman/contract unavailable.`,
+  1  Drift, invalid inputs, no prior ok (--vs-last-ok), or (contract mode) Podman/contract unavailable.`,
 		Args:         cobra.ArbitraryArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if strings.TrimSpace(vsLastOKDir) != "" {
+				if len(args) != 1 {
+					return fmt.Errorf("--vs-last-ok requires exactly one current receipt file argument")
+				}
+				return runDiffVsLastOK(cmd, vsLastOKDir, args[0], jsonOut, profiles, receiptDiffShowEnv)
+			}
 			switch strings.ToLower(strings.TrimSpace(mode)) {
 			case "", "auto":
 				// auto-detect below
@@ -350,7 +362,24 @@ Exit codes:
 	cmd.Flags().BoolVar(&receiptDiffShowEnv, "receipt-diff-show-env", false, "receipt pair only: include raw env values in JSON (default redacts; unsafe for logs)")
 	cmd.Flags().BoolVar(&dependents, "dependents", false, "with partial service targets, include transitive dependents within the profile-active set (contract diff only)")
 	cmd.Flags().StringVar(&mode, "mode", "", "force diff mode: 'contract' (compare contract vs Podman) or 'receipt' (compare two receipt files); default auto-detects from arguments")
+	cmd.Flags().StringVar(&vsLastOKDir, "vs-last-ok", "", "receipt store directory: compare newest ok receipt against the given current receipt file")
 	return cmd
+}
+
+func runDiffVsLastOK(cmd *cobra.Command, storeDir, currentPath string, jsonOut bool, profiles []string, receiptDiffShowEnv bool) error {
+	entry, err := receipt.LastOK(storeDir)
+	if err != nil {
+		code := clijson.CodeReceiptDiffLoadError
+		if errors.Is(err, receipt.ErrNoLastOK) {
+			code = clijson.CodeReceiptNoLastOK
+		}
+		if jsonOut {
+			emitReceiptPairErrorJSON(cmd, code, err.Error())
+			os.Exit(1)
+		}
+		return err
+	}
+	return runReceiptPairDiff(cmd, entry.Path, currentPath, jsonOut, profiles, receiptDiffShowEnv)
 }
 
 func runReceiptPairDiff(cmd *cobra.Command, pathA, pathB string, jsonOut bool, profiles []string, receiptDiffShowEnv bool) error {

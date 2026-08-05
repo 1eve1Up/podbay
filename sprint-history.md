@@ -1,3 +1,48 @@
+# Sprint 36: Receipts 2.0 history → intelligence
+
+2026-08-05
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Program:** Receipts 2.0 — *Deployments become evidence. Evidence becomes history. History becomes intelligence.*
+
+**Carries from Sprint 35:** History is complete for both outcomes — success and health-gate attempt receipts share identity, directory store, and `receipt list --status`. Agents still invented last-ok compare and handoff packaging.
+
+---
+
+## Sprint goal
+
+Turn a receipt directory into actionable intelligence: resolve last ok, compare via existing pair-diff, and emit a structured agent handoff summary (not automatic remediation).
+
+---
+
+### What happened
+
+We shipped `LastOK`, `receipt last-ok`, `diff --vs-last-ok`, `BuildHandoff` / `receipt handoff --json`, intelligence demo coverage, and docs. Eight **`feature/PIN-3601`** … **`feature/PIN-3608`** merges on **`main`**; **`go test ./...`** green (**1302 insertions / 16 deletions** across **16** files, **`d7fed8c`** … **`e698972`**). Receipts 2.0 spine closed; perf track deferred.
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-08-05 (UTC, sprint wrap)
+- **Scope**: Receipts 2.0 intelligence; structured handoff only (no ML/auto-remediation).
+
+### 5 whys (why agents still invented handoff after Sprint 35 history)
+
+1. **Why couldn’t agents answer “what changed since the last good deploy?”** Store + list existed; pair-diff still needed two explicit paths.
+2. **Why was intelligence still withheld?** Docs called receipts handoff objects but shipped no next-action packaging; playbook jumped to `logs` / `explain`.
+3. **Why not a second compare dialect?** Drift truth already lived in `CompareReceipts`; the gap was resolution + packaging.
+4. **Why not pivot to env/contract cache?** Perf wins do not close the named Receipts 2.0 third clause.
+5. **Root lesson:** **History becomes intelligence when agents can resolve last ok, reuse pair-diff, and leave with structured next steps.**
+
+### Actions
+
+- [x] Last-ok, vs-last-ok, handoff, demo, docs, exit bar (**PIN-3601** … **PIN-3608**).
+- [ ] Cross-invocation env/contract cache (deferred — perf track).
+- [ ] Parallel / `--no-probes` explain (deferred).
+
 # Sprint 35: Receipts 2.0 failure attempts
 
 2026-08-05

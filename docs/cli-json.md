@@ -45,9 +45,12 @@ podbay receipt /path/to/receipt.json          # human summary (shows evidence / 
 podbay receipt /path/to/receipt.json --json   # kind: receipt_read
 podbay receipt list .podbay/receipts/myproj --json                 # kind: receipt_list, newest first
 podbay receipt list .podbay/receipts/myproj --status failed --json # attempts only (ok also matches legacy empty status)
+podbay receipt last-ok .podbay/receipts/myproj --json              # kind: receipt_last_ok (or receipt_no_last_ok)
+podbay diff --vs-last-ok .podbay/receipts/myproj /path/to/attempt.json --json
+podbay receipt handoff /path/to/attempt.json --store .podbay/receipts/myproj --json  # kind: receipt_handoff
 ```
 
-Receipts are evidence/audit artifacts (not crypto, SBOM, rollback, or automatic next-action intelligence).
+Receipts are evidence/audit artifacts (not crypto, SBOM, or rollback). **Structured handoff summaries** (`receipt handoff`) ship ordered next-action hints aligned with the agent-loop playbook; they are **not** automatic remediation or root-cause diagnosis.
 
 ### Import compose JSON
 
@@ -59,6 +62,7 @@ See [contract.md#import-compose---json-ci-and-agents](contract.md) for **`import
 PODBAY_BIN=./podbay ./examples/ci-partial-agent-loop-demo.sh happy
 PODBAY_BIN=./podbay ./examples/ci-partial-agent-loop-demo.sh fail
 PODBAY_BIN=./podbay ./examples/ci-deploy-health-fail-demo.sh
+PODBAY_BIN=./podbay ./examples/ci-receipt-intelligence-demo.sh
 ```
 
 ### Example CI gate
@@ -88,11 +92,14 @@ Receipt comparison does not need a live Podman runtime:
 
 ```bash
 podbay diff /tmp/receipt-before.json /tmp/receipt-after.json --json
+podbay diff --vs-last-ok .podbay/receipts/myproj /tmp/attempt.json --json
 ```
 
 Deploy receipts use **`format_version`** in the JSON file. Receipt pair diff compares two decoded receipt files only (not contract vs runtime). When both sides have `contract_digest`, a mismatch is drift; when only one side has a digest, pair-diff emits an incomparable **warn** (legacy-compatible). `deploy_id` is not required to match across pair diffs.
 
-Receipts are useful as deployment evidence, release artifacts, drift gates, and agent handoff objects.
+`--vs-last-ok <dir>` resolves the newest ok receipt in the store (legacy empty status counts as ok) and runs the same pair-diff against the given current receipt. When no prior ok exists, the document fails with issue code **`receipt_no_last_ok`** and does **not** report false drift.
+
+Receipts are useful as deployment evidence, release artifacts, drift gates, and agent handoff objects (`receipt handoff --json`).
 
 ### Logs JSON
 

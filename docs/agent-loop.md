@@ -64,8 +64,12 @@ After containers start but health never passes:
 
 1. Read **`deploy --json`** `issues[]` for `deploy_health_timeout`, `deploy_health_probe_failed`, or `deploy_external_dep_unhealthy`; use **`service`** on the issue. When `--receipt` was set, also read **`receipt_path`** for the durable attempt receipt (`status: failed`, `failure` summary).
 2. Optionally inventory attempts: `podbay receipt list <dir> --status failed --json`.
-3. Run **`logs --json`** and **`explain --json`** with that service (and **`--dependents`** when downstream services are in the partial set). **`explain`** batches container inspect via `runtimestate.InspectContainers`, then runs **single-shot** health probes capped at **5 seconds per probe** (proximate-network diagnostic budget)—not deploy’s `--health-timeout` retry window or full contract `health.timeout`.
-4. Tear down with **`down` / `teardown --json`** so the next attempt starts clean.
+3. Resolve history intelligence before live diagnosis:
+   - `podbay receipt last-ok <dir>` — newest successful receipt (legacy empty status counts as ok).
+   - `podbay diff --vs-last-ok <dir> <attempt.json> --json` — compare the attempt to last ok via the same pair-diff path (no false drift when no prior ok; issue code `receipt_no_last_ok`).
+   - `podbay receipt handoff <attempt.json> --store <dir> --json` — one structured handoff document (identity, failure, last-ok/drift, ordered next-action hints). Handoff is **structured next-steps only**, not automatic remediation.
+4. Run **`logs --json`** and **`explain --json`** with that service (and **`--dependents`** when downstream services are in the partial set). **`explain`** batches container inspect via `runtimestate.InspectContainers`, then runs **single-shot** health probes capped at **5 seconds per probe** (proximate-network diagnostic budget)—not deploy’s `--health-timeout` retry window or full contract `health.timeout`.
+5. Tear down with **`down` / `teardown --json`** so the next attempt starts clean.
 
 ### Runnable demo
 
@@ -73,6 +77,7 @@ After containers start but health never passes:
 go build -o ./podbay ./cmd/podbay
 PODBAY_BIN=./podbay ./examples/ci-partial-agent-loop-demo.sh happy
 PODBAY_BIN=./podbay ./examples/ci-partial-agent-loop-demo.sh fail
+PODBAY_BIN=./podbay ./examples/ci-receipt-intelligence-demo.sh
 ```
 
 Older focused demos: `ci-receipt-demo.sh`, `ci-partial-logs-demo.sh`, `ci-deploy-health-fail-demo.sh`.
