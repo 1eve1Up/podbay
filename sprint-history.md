@@ -1,3 +1,48 @@
+# Sprint 37: Explain / onboard → orientation
+
+2026-08-06
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Program:** Orientation — *Agents need orientation. Humans need orientation.*
+
+**Carries from Sprint 36:** Receipts 2.0 closed (evidence → history → intelligence). Agents get last-ok compare and structured handoff after a failed deploy. Arrival and mid-loop still required inventing context: what is this project, what is in scope, what is running, and which CLI gate comes next.
+
+---
+
+## Sprint goal
+
+Ship one orientation surface agents and humans can trust: project + contract identity, service/graph skim, live runtime summary when Podman is available, and state-keyed next CLI (not causal diagnosis).
+
+---
+
+### What happened
+
+We shipped `internal/orientation` offline `Build` + live `AttachRuntime`, additive `orientation` on `explain --json`, `podbay onboard --json`, `init` next steps, offline orientation demo coverage, and docs for arrive vs fail vs live. Eight **`feature/PIN-3701`** … **`feature/PIN-3708`** merges on **`main`**; **`go test ./...`** green (**1217 insertions / 27 deletions** across **19** files, **`2db3ab4`** … **`af53036`**). Perf track deferred.
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-08-06 (UTC, sprint wrap)
+- **Scope**: Orientation; structured next-steps only (no ML/auto-remediation).
+
+### 5 whys (why agents and humans still invented orientation after Sprint 36 intelligence)
+
+1. **Why couldn’t agents answer “what is this stack and what should I do next?” on arrival?** Failure handoff existed; cold start still required inventing the first gate from docs.
+2. **Why was orientation still unshipped?** `explain` was facts-only; `init` wrote YAML and stopped; docs were not callable as one JSON document.
+3. **Why not a second runtime dialect?** Inspect/probe truth already lived in explain; the gap was packaging + cold-start CLI.
+4. **Why not pivot to env/contract cache?** Latency wins do not close the arrive-context hole.
+5. **Root lesson:** **Agents and humans need the same orientation surface**—shared vocabulary for onboard (cold) and explain (live), rule-based next steps, not diagnosis.
+
+### Actions
+
+- [x] Orientation model, live attach, explain packaging, onboard, init, demo, docs, exit bar (**PIN-3701** … **PIN-3708**).
+- [ ] Cross-invocation env/contract cache (deferred — perf track).
+- [ ] Parallel / `--no-probes` explain (deferred).
+
 # Sprint 36: Receipts 2.0 history → intelligence
 
 2026-08-05

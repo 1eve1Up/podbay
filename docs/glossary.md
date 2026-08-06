@@ -41,6 +41,7 @@ Partial deploy **pre-waits** on **`depends_on`** targets outside the active set 
 | --- | --- |
 | **`health.timeout`** | Contract per-try probe deadline for **deploy** health gates (may be longer during cold start / `start_period`). |
 | **Explain probe budget** | **`podbay explain`** runs **single-shot** HTTP/exec probes capped at **5s per probe** (shorter than deploy when contract timeout is large). See [agent-loop.md](agent-loop.md) failure playbook. |
+| **Orientation** | Shared arrive/mid-loop document (`kind: orientation`): identity, graph skim, optional runtime summary, ordered `next_actions`. Emitted by **`podbay onboard --json`** and as an additive block on **`explain --json`**. Structured next-steps only — not diagnosis or remediation. |
 
 ---
 

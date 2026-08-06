@@ -9,10 +9,31 @@ Reference for `--json` envelopes, receipts, and automation exit codes. Contract 
 Podbay’s JSON output is designed for tools, agents, and CI. Versioned documents include:
 
 - `format_version`
-- `kind`, such as `validate`, `deploy`, `diff`, `receipt_read`, `receipt_list`, `teardown`, `import_compose`, or `logs`
+- `kind`, such as `validate`, `deploy`, `diff`, `receipt_read`, `receipt_list`, `orientation`, `teardown`, `import_compose`, or `logs`
 - `status`, usually `ok` or `failed`
 - `issues[]`, with stable-ish codes, levels, messages, and optional service names
-- optional `deploy_services` on **`validate`** / **`deploy`** / **`diff`** / **`ps`** / **`explain`** / **`teardown` / `down`** JSON when you pass explicit service roots on the CLI; optional **`dependents_expand`** when partial roots are combined with **`--dependents`**
+- optional `deploy_services` on **`validate`** / **`deploy`** / **`diff`** / **`ps`** / **`explain`** / **`teardown` / `down`** / **`onboard`** JSON when you pass explicit service roots on the CLI; optional **`dependents_expand`** when partial roots are combined with **`--dependents`**
+
+### Orientation / onboard
+
+`podbay onboard --json` emits a versioned **`kind: orientation`** document shared with the additive **`orientation`** object on **`explain --json`**:
+
+- identity: `project`, `contract_path`, optional `profiles` / `deploy_services` / `dependents_expand`
+- `active_services`, `graph` (depends_on skim)
+- optional `runtime` (live summary when Podman is available; omitted or `available: false` offline)
+- `next_actions` — ordered agent-loop CLI hints (rule-based)
+- `note` — always states structured context/next-steps only (not automatic remediation or root-cause diagnosis)
+
+Load failures with `--json` use `status: failed` and issue code **`orientation_load_error`**.
+
+```bash
+podbay init -f /tmp/demo/podbay.yaml
+podbay onboard -f /tmp/demo/podbay.yaml --json
+podbay explain -f examples/nginx --json   # includes orientation when Podman is up
+PODBAY_BIN=./podbay ./examples/ci-orientation-demo.sh
+```
+
+Orientation is **arrive** packaging. Failure intelligence remains **`receipt handoff`**. Explain remains factual runtime/health; orientation does not add causal diagnosis.
 
 ### Deploy health-gate failures
 
@@ -59,6 +80,7 @@ See [contract.md#import-compose---json-ci-and-agents](contract.md) for **`import
 ### Demos
 
 ```bash
+PODBAY_BIN=./podbay ./examples/ci-orientation-demo.sh
 PODBAY_BIN=./podbay ./examples/ci-partial-agent-loop-demo.sh happy
 PODBAY_BIN=./podbay ./examples/ci-partial-agent-loop-demo.sh fail
 PODBAY_BIN=./podbay ./examples/ci-deploy-health-fail-demo.sh

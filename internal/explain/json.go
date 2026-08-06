@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/1eve1Up/podbay/internal/expand"
+	"github.com/1eve1Up/podbay/internal/orientation"
 	"github.com/1eve1Up/podbay/internal/runner"
 	"github.com/1eve1Up/podbay/internal/runtimestate"
 	"github.com/1eve1Up/podbay/internal/spec"
@@ -16,20 +17,21 @@ import (
 const ExplainJSONFormatVersion = 1
 
 type explainJSONV1 struct {
-	FormatVersion        int            `json:"format_version"`
-	Kind                 string         `json:"kind"`
-	Status               string         `json:"status"`
-	Project              string         `json:"project"`
-	ContractPath         string         `json:"contract_path"`
-	Profiles             []string       `json:"profiles,omitempty"`
-	DeployServices       []string       `json:"deploy_services,omitempty"`
-	DependentsExpand     bool           `json:"dependents_expand,omitempty"`
-	ActiveServices       []string       `json:"active_services"`
-	Focus                string         `json:"focus,omitempty"`
-	Dependencies         *focusDepsJSON `json:"dependencies,omitempty"`
-	Issues               []explainIssue `json:"issues"`
-	Services             []serviceJSON  `json:"services"`
-	UnexpectedContainers []string       `json:"unexpected_containers,omitempty"`
+	FormatVersion        int                   `json:"format_version"`
+	Kind                 string                `json:"kind"`
+	Status               string                `json:"status"`
+	Project              string                `json:"project"`
+	ContractPath         string                `json:"contract_path"`
+	Profiles             []string              `json:"profiles,omitempty"`
+	DeployServices       []string              `json:"deploy_services,omitempty"`
+	DependentsExpand     bool                  `json:"dependents_expand,omitempty"`
+	ActiveServices       []string              `json:"active_services"`
+	Focus                string                `json:"focus,omitempty"`
+	Dependencies         *focusDepsJSON        `json:"dependencies,omitempty"`
+	Issues               []explainIssue        `json:"issues"`
+	Services             []serviceJSON         `json:"services"`
+	UnexpectedContainers []string              `json:"unexpected_containers,omitempty"`
+	Orientation          *orientation.Document `json:"orientation,omitempty"`
 }
 
 // explainIssue keeps the envelope shape consistent with validate/deploy/diff documents.
@@ -119,10 +121,12 @@ func ReportJSON(c *spec.Contract, contractPath, project string, profiles []strin
 	if err != nil {
 		return nil, err
 	}
+	statuses := make([]ServiceStatus, 0, len(iterate))
 	svcs := make([]serviceJSON, 0, len(iterate))
 	for _, svcName := range iterate {
 		cname := r.ContainerName(svcName)
 		st := collectServiceStatus(r, svcName, profileActive[svcName], hostSubst, states[cname], nil)
+		statuses = append(statuses, st)
 		svcs = append(svcs, serviceStatusToJSON(st))
 	}
 
@@ -164,7 +168,26 @@ func ReportJSON(c *spec.Contract, contractPath, project string, profiles []strin
 	}
 	out.UnexpectedContainers = extra
 
+	if orient, oerr := buildLiveOrientation(c, contractPath, profiles, deployRoots, expandDependents, statuses); oerr == nil {
+		out.Orientation = orient
+	}
+
 	return json.MarshalIndent(out, "", "  ")
+}
+
+// buildLiveOrientation composes the shared orientation document from contract scope
+// plus already-collected explain service statuses (no extra Podman calls).
+func buildLiveOrientation(c *spec.Contract, contractPath string, profiles, deployRoots []string, expandDependents bool, statuses []ServiceStatus) (*orientation.Document, error) {
+	doc, err := orientation.Build(c, contractPath, orientation.BuildOptions{
+		Profiles:         profiles,
+		DeployRoots:      deployRoots,
+		ExpandDependents: expandDependents,
+	})
+	if err != nil {
+		return nil, err
+	}
+	orientation.AttachRuntime(doc, true, RuntimeRowsFromStatus(statuses))
+	return doc, nil
 }
 
 func buildFocusDepsJSON(active map[string]spec.Service, focus string) *focusDepsJSON {

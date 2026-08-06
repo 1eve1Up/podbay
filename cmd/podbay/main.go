@@ -30,6 +30,7 @@ func main() {
 	root.PersistentFlags().StringVarP(&fileFlag, "file", "f", "", "path to podbay.yaml or its directory, relative to the current working directory unless absolute (or pass the same path as a subcommand argument)")
 
 	root.AddCommand(initCmd(&fileFlag, defaultFile))
+	root.AddCommand(onboardCmd(&fileFlag, defaultFile))
 	root.AddCommand(validateCmd(&fileFlag, defaultFile))
 	root.AddCommand(deployCmd(&fileFlag, defaultFile))
 	root.AddCommand(teardownCmd(&fileFlag, defaultFile))

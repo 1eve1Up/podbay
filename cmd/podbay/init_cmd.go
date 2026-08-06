@@ -39,6 +39,9 @@ func initCmd(fileFlag *string, defaultFile string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "init",
 		Short: "Create a baseline podbay.yaml in the current directory",
+		Long: `Write a baseline podbay.yaml, then print orientation next steps
+(onboard / validate). Does not require Podman. Refuses to overwrite an existing file.`,
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			target := filepath.Join(filepath.Dir(defaultFile), spec.DefaultFilename)
 			if *fileFlag != "" {
@@ -55,7 +58,11 @@ func initCmd(fileFlag *string, defaultFile string) *cobra.Command {
 			if err := os.WriteFile(target, []byte(initTemplate), 0o644); err != nil {
 				return err
 			}
-			fmt.Printf("Wrote %s\n", target)
+			out := cmd.OutOrStdout()
+			fmt.Fprintf(out, "Wrote %s\n", target)
+			fmt.Fprintln(out, "Next steps:")
+			fmt.Fprintf(out, "  podbay onboard -f %s --json\n", target)
+			fmt.Fprintf(out, "  podbay validate -f %s --json\n", target)
 			return nil
 		},
 	}

@@ -11,6 +11,7 @@ A code agent does not need another prose README telling it “run the app someho
 Podbay gives agents:
 
 - **A target**: edit the app and keep `podbay.yaml` true.
+- **An orientation gate**: `podbay onboard --json` (and `podbay init` next steps) for project shape, graph skim, and ordered next CLI — arrive before operating.
 - **A preflight gate**: `podbay validate --json` before touching runtime.
 - **A deploy gate**: `podbay deploy --json --receipt ...` with structured success/failure.
 - **A drift gate**: `podbay diff --json` to prove runtime matches the contract.
@@ -43,6 +44,24 @@ Do not use Podbay when:
 
 ---
 
+## Orientation playbook (arrive)
+
+Agents and humans need the same orientation surface before inventing the first gate:
+
+| Situation | Command | What you get |
+| --- | --- | --- |
+| New contract | `podbay init` then `podbay onboard -f <contract> --json` | Baseline YAML + orientation (identity, graph skim, next CLI) |
+| Existing contract, cold | `podbay onboard -f <contract> --json` | Offline orientation (no Podman required) |
+| Live stack | `podbay explain -f <contract> --json` | Factual runtime/health **plus** additive `orientation` block (same vocabulary as onboard) |
+
+**Arrive vs fail vs live:**
+
+- **Arrive** — `onboard` (and `init` next steps): structured context + ordered CLI. Not diagnosis.
+- **Fail** — `receipt handoff`: failure identity + last-ok/drift + ordered next steps. Not automatic remediation.
+- **Live facts** — `explain`: inspect + probes; orientation packaging is additive, not root-cause.
+
+---
+
 ## Partial-deploy agent loop
 
 For multi-service stacks, agents often deploy **one root** plus **`--dependents`**, then prove drift and collect evidence on the **same roots**—without re-parsing stderr when deploy fails at a health gate.
@@ -68,13 +87,14 @@ After containers start but health never passes:
    - `podbay receipt last-ok <dir>` — newest successful receipt (legacy empty status counts as ok).
    - `podbay diff --vs-last-ok <dir> <attempt.json> --json` — compare the attempt to last ok via the same pair-diff path (no false drift when no prior ok; issue code `receipt_no_last_ok`).
    - `podbay receipt handoff <attempt.json> --store <dir> --json` — one structured handoff document (identity, failure, last-ok/drift, ordered next-action hints). Handoff is **structured next-steps only**, not automatic remediation.
-4. Run **`logs --json`** and **`explain --json`** with that service (and **`--dependents`** when downstream services are in the partial set). **`explain`** batches container inspect via `runtimestate.InspectContainers`, then runs **single-shot** health probes capped at **5 seconds per probe** (proximate-network diagnostic budget)—not deploy’s `--health-timeout` retry window or full contract `health.timeout`.
+4. Run **`logs --json`** and **`explain --json`** with that service (and **`--dependents`** when downstream services are in the partial set). **`explain`** batches container inspect via `runtimestate.InspectContainers`, then runs **single-shot** health probes capped at **5 seconds per probe** (proximate-network diagnostic budget)—not deploy’s `--health-timeout` retry window or full contract `health.timeout`. Explain `--json` also includes an additive **`orientation`** block (same vocabulary as `onboard`).
 5. Tear down with **`down` / `teardown --json`** so the next attempt starts clean.
 
 ### Runnable demo
 
 ```bash
 go build -o ./podbay ./cmd/podbay
+PODBAY_BIN=./podbay ./examples/ci-orientation-demo.sh
 PODBAY_BIN=./podbay ./examples/ci-partial-agent-loop-demo.sh happy
 PODBAY_BIN=./podbay ./examples/ci-partial-agent-loop-demo.sh fail
 PODBAY_BIN=./podbay ./examples/ci-receipt-intelligence-demo.sh

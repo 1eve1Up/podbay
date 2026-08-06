@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/1eve1Up/podbay/internal/expand"
+	"github.com/1eve1Up/podbay/internal/orientation"
 	"github.com/1eve1Up/podbay/internal/runner"
 	"github.com/1eve1Up/podbay/internal/runtimestate"
 	"github.com/1eve1Up/podbay/internal/spec"
@@ -46,25 +47,34 @@ func Report(c *spec.Contract, contractPath, project string, profiles []string, d
 		iterate = spec.ServiceNamesSorted(obs)
 	}
 
+	states, err := inspectServiceContainers(r, iterate)
+	if err != nil {
+		return "", err
+	}
+	statuses := make([]ServiceStatus, 0, len(iterate))
+	for _, svcName := range iterate {
+		cname := r.ContainerName(svcName)
+		st := collectServiceStatus(r, svcName, profileActive[svcName], hostSubst, states[cname], nil)
+		statuses = append(statuses, st)
+	}
+
 	b.WriteString(fmt.Sprintf("Project: %s\n", project))
 	b.WriteString(fmt.Sprintf("Active services: %d\n", len(iterate)))
 	if len(iterate) > 0 {
 		b.WriteString(strings.Join(iterate, ", "))
-		b.WriteString("\n\n")
+		b.WriteString("\n")
 	}
+	if orient, oerr := buildLiveOrientation(c, contractPath, profiles, deployRoots, expandDependents, statuses); oerr == nil {
+		writeOrientationPreamble(&b, orient)
+	}
+	b.WriteString("\n")
 
 	if len(deployRoots) > 0 && len(iterate) == 1 {
 		b.WriteString(DependencySummary(profileActive, iterate[0]))
 		b.WriteString("\n")
 	}
 
-	states, err := inspectServiceContainers(r, iterate)
-	if err != nil {
-		return "", err
-	}
-	for _, svcName := range iterate {
-		cname := r.ContainerName(svcName)
-		st := collectServiceStatus(r, svcName, profileActive[svcName], hostSubst, states[cname], nil)
+	for _, st := range statuses {
 		writeServiceDetail(&b, st)
 	}
 
@@ -78,6 +88,16 @@ func Report(c *spec.Contract, contractPath, project string, profiles []string, d
 	}
 
 	return b.String(), nil
+}
+
+func writeOrientationPreamble(b *strings.Builder, doc *orientation.Document) {
+	if doc == nil {
+		return
+	}
+	b.WriteString("Orientation: structured next-steps (not diagnosis)\n")
+	for _, a := range doc.NextActions {
+		b.WriteString("  next: " + a + "\n")
+	}
 }
 
 func writeServiceDetail(b *strings.Builder, st ServiceStatus) {
