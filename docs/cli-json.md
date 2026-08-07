@@ -77,10 +77,26 @@ Receipts are evidence/audit artifacts (not crypto, SBOM, or rollback). **Structu
 
 See [contract.md#import-compose---json-ci-and-agents](contract.md) for **`import_compose`** success/failure shapes and stable **`issues[].code`** values.
 
+### Init JSON (`init` / `init --from-codebase`)
+
+Pass **`--json`** to **`podbay init`** for a **`kind: init`** document (`format_version` **1**).
+
+**Success (`status: ok`):** `contract_path` is the written `podbay.yaml`. For **`--from-codebase`**, also `compose_source`, `service_count`, and ordered **`next_actions`** (`onboard` / `validate`). Greenfield success includes `project` and the same next-action dialect.
+
+**Failure (`status: failed`, exit 1):** `issues[]` with stable codes, including:
+
+| `code` | When |
+| --- | --- |
+| **`compose_discovery_not_found`** | No well-known Compose file under the directory (and no usable `--compose`). |
+| **`init_target_exists`** | Target `podbay.yaml` already exists (refuse overwrite). |
+| **`import_*`** | Same import/load codes as `import compose` when discovery finds a file but load/translate fails. |
+| **`init_error`** | Other init failures. |
+
 ### Demos
 
 ```bash
 PODBAY_BIN=./podbay ./examples/ci-orientation-demo.sh
+PODBAY_BIN=./podbay ./examples/ci-from-codebase-demo.sh
 PODBAY_BIN=./podbay ./examples/ci-partial-agent-loop-demo.sh happy
 PODBAY_BIN=./podbay ./examples/ci-partial-agent-loop-demo.sh fail
 PODBAY_BIN=./podbay ./examples/ci-deploy-health-fail-demo.sh

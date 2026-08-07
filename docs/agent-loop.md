@@ -11,7 +11,7 @@ A code agent does not need another prose README telling it “run the app someho
 Podbay gives agents:
 
 - **A target**: edit the app and keep `podbay.yaml` true.
-- **An orientation gate**: `podbay onboard --json` (and `podbay init` next steps) for project shape, graph skim, and ordered next CLI — arrive before operating.
+- **An orientation gate**: `podbay onboard --json` (and `podbay init` / `init --from-codebase` next steps) for project shape, graph skim, and ordered next CLI — arrive before operating.
 - **A preflight gate**: `podbay validate --json` before touching runtime.
 - **A deploy gate**: `podbay deploy --json --receipt ...` with structured success/failure.
 - **A drift gate**: `podbay diff --json` to prove runtime matches the contract.
@@ -50,13 +50,16 @@ Agents and humans need the same orientation surface before inventing the first g
 
 | Situation | Command | What you get |
 | --- | --- | --- |
-| New contract | `podbay init` then `podbay onboard -f <contract> --json` | Baseline YAML + orientation (identity, graph skim, next CLI) |
+| Greenfield | `podbay init` then `podbay onboard -f <contract> --json` | Nginx starter YAML + orientation (identity, graph skim, next CLI) |
+| Brownfield (Compose in repo) | `podbay init --from-codebase [dir]` then `onboard` / `validate` | Discover well-known Compose → first-pass contract via import pipeline → orient |
 | Existing contract, cold | `podbay onboard -f <contract> --json` | Offline orientation (no Podman required) |
 | Live stack | `podbay explain -f <contract> --json` | Factual runtime/health **plus** additive `orientation` block (same vocabulary as onboard) |
 
+**Discovery order** for `--from-codebase`: `compose.yaml`, `compose.yml`, `docker-compose.yaml`, `docker-compose.yml`. Override with `--compose <path>`. Explicit `podbay import compose` remains available when you already know the Compose file.
+
 **Arrive vs fail vs live:**
 
-- **Arrive** — `onboard` (and `init` next steps): structured context + ordered CLI. Not diagnosis.
+- **Arrive** — `init` / `init --from-codebase` next steps, then `onboard`: structured context + ordered CLI. Not diagnosis. First-pass import still needs validate / hand-tighten.
 - **Fail** — `receipt handoff`: failure identity + last-ok/drift + ordered next steps. Not automatic remediation.
 - **Live facts** — `explain`: inspect + probes; orientation packaging is additive, not root-cause.
 

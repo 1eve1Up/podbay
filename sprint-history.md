@@ -1,3 +1,48 @@
+# Sprint 38: Init → from-codebase
+
+2026-08-07
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Program:** Adoption — *Show me a repo I've never seen.*
+
+**Carries from Sprint 37:** Orientation shipped (`onboard`, explain packaging, init next steps). Agents and humans can answer “what is this stack and what next?” once a contract exists. Getting that contract from a brownfield repo was still tribal.
+
+---
+
+## Sprint goal
+
+Ship `podbay init --from-codebase`: discover Compose, reuse import to write a first-pass `podbay.yaml`, hand off to onboard / validate (Compose-first only).
+
+---
+
+### What happened
+
+We shipped `composefile.Discover`, `init --from-codebase` (reuse import pipeline), `kind: init` JSON with stable codes and orient `next_actions`, greenfield init preserved, offline `ci-from-codebase-demo.sh`, and docs for brownfield vs greenfield vs orientation. Eight **`feature/PIN-3801`** … **`feature/PIN-3808`** merges on **`main`**; **`go test ./...`** green (**934 insertions / 29 deletions** across **14** files, **`1c3af6e`** … **`6eb075c`**). Perf track deferred.
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-08-07 (UTC, sprint wrap)
+- **Scope**: Adoption; Compose-first from-codebase only (no language heuristics, no ML).
+
+### 5 whys (why agents still invented the first contract after Sprint 37 orientation)
+
+1. **Why couldn’t agents start on an unseen Compose repo?** Orientation needs a contract; brownfield still required inventing `import compose`.
+2. **Why was adoption unshipped?** Greenfield `init` was nginx-only; import was powerful but tribal; adoption metric stalled on discovery + packaging.
+3. **Why not a second translator?** Import pipeline already existed; the gap was discover + one-command packaging + orient handoff.
+4. **Why not pivot to env/contract cache?** Latency polish does not open the front door for Compose-bearing repos.
+5. **Root lesson:** **Adoption is arrive-with-a-contract-from-the-repo**—Compose-first `--from-codebase`, reuse import, same onboard/validate dialect.
+
+### Actions
+
+- [x] Discovery, from-codebase, JSON, next steps, greenfield proof, demo, docs, exit bar (**PIN-3801** … **PIN-3808**).
+- [ ] Dockerfile-only / non-Compose stubs (deferred).
+- [ ] Env/contract cache; parallel / `--no-probes` explain (deferred — perf track).
+
 # Sprint 37: Explain / onboard → orientation
 
 2026-08-06

@@ -25,6 +25,7 @@ const (
 	KindDiff           = "diff"
 	KindTeardown       = "teardown"
 	KindLogs           = "logs"
+	KindInit           = "init"
 )
 
 // Status is a coarse outcome for automation.
@@ -99,8 +100,12 @@ type Document struct {
 	ImportContractYAML string `json:"contract_yaml,omitempty"`
 	// ImportOutputPath is the absolute -o/--output path when set (file written in addition to stdout JSON).
 	ImportOutputPath string `json:"output_path,omitempty"`
-	// ImportServiceCount is len(services) in the generated contract.
+	// ImportServiceCount is len(services) in the generated contract (also used by KindInit --from-codebase).
 	ImportServiceCount int `json:"service_count,omitempty"`
+	// ComposeSource is the Compose file path for KindInit --from-codebase (contract_path is the written podbay.yaml).
+	ComposeSource string `json:"compose_source,omitempty"`
+	// NextActions lists ordered CLI hints for KindInit success (onboard / validate); omitted when empty.
+	NextActions []string `json:"next_actions,omitempty"`
 	// Receipt list (KindReceiptList): directory inventoried and newest-first entries.
 	ReceiptListDir string             `json:"receipt_list_dir,omitempty"`
 	Receipts       []ReceiptListEntry `json:"receipts,omitempty"`

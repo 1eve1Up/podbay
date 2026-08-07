@@ -42,7 +42,7 @@ Podbay uses calendar-based release versions. Calendar versions identify releases
 ## What Podbay does today
 
 - Defines a stack in `podbay.yaml`: services, builds, images, ports, volumes, networks, profiles, `depends_on` (child→parent startup order and health gates), optional `dependents` (each parent lists every service that **`depends_on`** that parent—validated in both directions), optional **`--dependents`** for transitive downstream partial expansion, health checks, requirements, and Podman-specific parity settings.
-- Imports many Compose files with `podbay import compose` so existing projects can migrate incrementally.
+- Adopts existing Compose projects with `podbay init --from-codebase` (discover → first-pass `podbay.yaml` → orient) or explicit `podbay import compose` for incremental migration.
 - Validates before running with `podbay validate`, including dependency graph, port checks, paths, commands, profiles, network rules, and healthy-dependency requirements.
 - Deploys with Podman using deterministic names and labels: `podbay_<project>_<service>` plus `podbay.project` / `podbay.service`.
 - Writes deploy receipts with `podbay deploy --receipt` (file or directory store): success evidence and health-gate attempt receipts, listable via `podbay receipt list` / `last-ok` / `handoff`.
@@ -59,6 +59,7 @@ Podbay uses calendar-based release versions. Calendar versions identify releases
 | [docs/contract.md](docs/contract.md) | `podbay.yaml` reference, networks, profiles, Compose import |
 | [docs/cli-json.md](docs/cli-json.md) | `--json` envelopes, receipts, exit behavior |
 | [docs/agent-loop.md](docs/agent-loop.md) | Validate → deploy → diff automation and partial-deploy demos |
+| [docs/blog-sprint-38-init-from-codebase.md](docs/blog-sprint-38-init-from-codebase.md) | Sprint 38: `init --from-codebase` adoption blog |
 | [docs/glossary.md](docs/glossary.md) | Terminology across CLI, JSON, and Go |
 | [docs/contract-change-checklist.md](docs/contract-change-checklist.md) | Which layers to touch per change type |
 

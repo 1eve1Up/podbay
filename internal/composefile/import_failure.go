@@ -15,6 +15,9 @@ const (
 	CodeImportIncludeDepth        = "import_include_depth"
 	CodeImportIncludePathEscape   = "import_include_path_escape"
 	CodeImportIncludeUnsupported  = "import_include_unsupported"
+	// CodeComposeDiscoveryNotFound is returned by Discover when no well-known
+	// Compose file exists in the directory (and no usable explicit path was given).
+	CodeComposeDiscoveryNotFound = "compose_discovery_not_found"
 )
 
 // ImportFailure is a compose load/parse/include error with a stable machine code.
