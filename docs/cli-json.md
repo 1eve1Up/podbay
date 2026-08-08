@@ -81,15 +81,17 @@ See [contract.md#import-compose---json-ci-and-agents](contract.md) for **`import
 
 Pass **`--json`** to **`podbay init`** for a **`kind: init`** document (`format_version` **1**).
 
-**Success (`status: ok`):** `contract_path` is the written `podbay.yaml`. For **`--from-codebase`**, also `compose_source`, `service_count`, and ordered **`next_actions`** (`onboard` / `validate`). Greenfield success includes `project` and the same next-action dialect.
+**Success (`status: ok`):** `contract_path` is the written `podbay.yaml`. For **`--from-codebase`**, also `source_kind` (`compose` or `dockerfile`), `compose_source` or `dockerfile_source`, `service_count`, and ordered **`next_actions`** (`onboard` / `validate`). Greenfield success includes `project` and the same next-action dialect.
 
 **Failure (`status: failed`, exit 1):** `issues[]` with stable codes, including:
 
 | `code` | When |
 | --- | --- |
-| **`compose_discovery_not_found`** | No well-known Compose file under the directory (and no usable `--compose`). |
+| **`codebase_discovery_not_found`** | Neither a well-known Compose file nor Dockerfile under the directory (automatic fallback path). |
+| **`compose_discovery_not_found`** | Explicit `--compose` path unusable / Compose discovery miss when not falling through. |
+| **`dockerfile_discovery_not_found`** | Explicit `--dockerfile` path unusable / Dockerfile discovery miss. |
 | **`init_target_exists`** | Target `podbay.yaml` already exists (refuse overwrite). |
-| **`import_*`** | Same import/load codes as `import compose` when discovery finds a file but load/translate fails. |
+| **`import_*`** | Same import/load codes as `import compose` when discovery finds a Compose file but load/translate fails. |
 | **`init_error`** | Other init failures. |
 
 ### Demos
@@ -97,6 +99,7 @@ Pass **`--json`** to **`podbay init`** for a **`kind: init`** document (`format_
 ```bash
 PODBAY_BIN=./podbay ./examples/ci-orientation-demo.sh
 PODBAY_BIN=./podbay ./examples/ci-from-codebase-demo.sh
+PODBAY_BIN=./podbay ./examples/ci-dockerfile-from-codebase-demo.sh
 PODBAY_BIN=./podbay ./examples/ci-partial-agent-loop-demo.sh happy
 PODBAY_BIN=./podbay ./examples/ci-partial-agent-loop-demo.sh fail
 PODBAY_BIN=./podbay ./examples/ci-deploy-health-fail-demo.sh

@@ -37,19 +37,20 @@ Create a **greenfield** starter with:
 podbay init
 ```
 
-For a **brownfield** repo that already has Compose, prefer one-command adoption:
+For a **brownfield** repo, prefer one-command adoption:
 
 ```bash
 podbay init --from-codebase
 # or: podbay init --from-codebase /path/to/repo
 # or: podbay init --from-codebase --compose path/to/compose.yaml
+# or: podbay init --from-codebase --dockerfile path/to/Dockerfile
 podbay onboard -f podbay.yaml --json
 podbay validate -f podbay.yaml
 ```
 
-`--from-codebase` discovers the first well-known Compose file (`compose.yaml`, `compose.yml`, `docker-compose.yaml`, `docker-compose.yml`), runs the same import pipeline as `import compose`, writes `podbay.yaml`, and prints onboard / validate next steps. It refuses to overwrite an existing contract. Use **`--json`** for a machine-readable `kind: init` outcome (`compose_source`, `service_count`, `next_actions`, stable `issues[].code` on failure).
+`--from-codebase` discovers the first well-known Compose file (`compose.yaml`, `compose.yml`, `docker-compose.yaml`, `docker-compose.yml`) and runs the same import pipeline as `import compose`. If no Compose file is found, it falls back to a well-known Dockerfile (`Dockerfile`, then `dockerfile`) and writes a **single-service build stub** (`build.context` / `build.dockerfile` plus an image tag). It prints onboard / validate next steps and refuses to overwrite an existing contract. Use **`--compose`** or **`--dockerfile`** to override (mutually exclusive). Use **`--json`** for a machine-readable `kind: init` outcome (`source_kind`, `compose_source` or `dockerfile_source`, `service_count`, `next_actions`, stable `issues[].code` on failure — including `codebase_discovery_not_found` when neither source exists).
 
-Treat the result as a **first-pass** contract (validate / hand-tighten)—not full Compose parity or magic.
+Treat the result as a **first-pass** contract (validate / hand-tighten)—not full Compose parity, not language/package-manager scanning, and not magic.
 
 ---
 
@@ -138,7 +139,7 @@ podbay import compose /path/to/cyclic-root.yml --json
 | Command | Purpose |
 | --- | --- |
 | `podbay init` | Create a greenfield starter `podbay.yaml` (nginx template). |
-| `podbay init --from-codebase [dir]` | Discover Compose under `dir` (default `.`) and write a first-pass `podbay.yaml`. Optional **`--compose`**. Use **`--json`** for `kind: init` success/failure. |
+| `podbay init --from-codebase [dir]` | Discover Compose (preferred) or Dockerfile under `dir` (default `.`) and write a first-pass `podbay.yaml`. Optional **`--compose`** / **`--dockerfile`**. Use **`--json`** for `kind: init` success/failure. |
 | `podbay import compose <file>` | Convert an explicit Compose file into a first-pass Podbay contract. Use **`--json`** for versioned JSON on stdout (**success** or **failure**; stable **`issues[].code`** on failure). |
 | `podbay validate` | Load the contract and run preflight checks. Optional **service names** after the contract path (or after `-f`) select **explicit targets** within the `--profile` active set; by default the checked set is **exactly** those names (no automatic parent pull). Pass **`--dependents`** to include the **transitive closure** of profile-active services that **`depends_on`** any service already in the working set. **`dependents`** on a service **P** must list every profile-active child that **`depends_on` P**, and every **`dependents`** entry must **`depends_on`** its parent—validate fails if either direction is wrong. **`depends_on`** still defines startup order and, for edges **outside** the active set, **`podbay deploy`** **pre-waits** on existing containers without redeploying them. Use **`--json`** for CI/agents. |
 | `podbay deploy` | Same selection rules and **`--dependents`** flag as **`validate`**, then build/start that subset. Receipt lists deployed services only. |

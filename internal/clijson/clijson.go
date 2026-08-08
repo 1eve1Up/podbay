@@ -104,6 +104,10 @@ type Document struct {
 	ImportServiceCount int `json:"service_count,omitempty"`
 	// ComposeSource is the Compose file path for KindInit --from-codebase (contract_path is the written podbay.yaml).
 	ComposeSource string `json:"compose_source,omitempty"`
+	// DockerfileSource is the Dockerfile path for KindInit --from-codebase Dockerfile fallback.
+	DockerfileSource string `json:"dockerfile_source,omitempty"`
+	// SourceKind is "compose" or "dockerfile" for KindInit --from-codebase success; omitted for greenfield.
+	SourceKind string `json:"source_kind,omitempty"`
 	// NextActions lists ordered CLI hints for KindInit success (onboard / validate); omitted when empty.
 	NextActions []string `json:"next_actions,omitempty"`
 	// Receipt list (KindReceiptList): directory inventoried and newest-first entries.

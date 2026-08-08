@@ -52,14 +52,15 @@ Agents and humans need the same orientation surface before inventing the first g
 | --- | --- | --- |
 | Greenfield | `podbay init` then `podbay onboard -f <contract> --json` | Nginx starter YAML + orientation (identity, graph skim, next CLI) |
 | Brownfield (Compose in repo) | `podbay init --from-codebase [dir]` then `onboard` / `validate` | Discover well-known Compose → first-pass contract via import pipeline → orient |
+| Brownfield (Dockerfile only) | `podbay init --from-codebase [dir]` then `onboard` / `validate` | After Compose miss, discover Dockerfile → single-service build stub → orient |
 | Existing contract, cold | `podbay onboard -f <contract> --json` | Offline orientation (no Podman required) |
 | Live stack | `podbay explain -f <contract> --json` | Factual runtime/health **plus** additive `orientation` block (same vocabulary as onboard) |
 
-**Discovery order** for `--from-codebase`: `compose.yaml`, `compose.yml`, `docker-compose.yaml`, `docker-compose.yml`. Override with `--compose <path>`. Explicit `podbay import compose` remains available when you already know the Compose file.
+**Discovery order** for `--from-codebase`: Compose first (`compose.yaml`, `compose.yml`, `docker-compose.yaml`, `docker-compose.yml`), then Dockerfile fallback (`Dockerfile`, `dockerfile`). Override with `--compose <path>` or force Dockerfile with `--dockerfile <path>` (mutually exclusive). Explicit `podbay import compose` remains available when you already know the Compose file.
 
 **Arrive vs fail vs live:**
 
-- **Arrive** — `init` / `init --from-codebase` next steps, then `onboard`: structured context + ordered CLI. Not diagnosis. First-pass import still needs validate / hand-tighten.
+- **Arrive** — `init` / `init --from-codebase` next steps, then `onboard`: structured context + ordered CLI. Not diagnosis. First-pass Compose import or Dockerfile stub still needs validate / hand-tighten.
 - **Fail** — `receipt handoff`: failure identity + last-ok/drift + ordered next steps. Not automatic remediation.
 - **Live facts** — `explain`: inspect + probes; orientation packaging is additive, not root-cause.
 

@@ -16,6 +16,12 @@ const (
 	CodeInitError        = "init_error"
 )
 
+// Init source_kind values for --from-codebase success documents.
+const (
+	InitSourceCompose    = "compose"
+	InitSourceDockerfile = "dockerfile"
+)
+
 // InitTargetExistsError is returned when init refuses to overwrite an existing contract.
 type InitTargetExistsError struct {
 	Path string
@@ -37,7 +43,7 @@ func InitOrientNextActions(contractPath string) []string {
 	}
 }
 
-// FromInitFromCodebaseSuccess builds a successful init document after --from-codebase.
+// FromInitFromCodebaseSuccess builds a successful init document after Compose --from-codebase.
 // contractPath is the written podbay.yaml; composeSource is the Compose file used.
 func FromInitFromCodebaseSuccess(contractPath, composeSource string, c *spec.Contract) *Document {
 	n := 0
@@ -52,6 +58,31 @@ func FromInitFromCodebaseSuccess(contractPath, composeSource string, c *spec.Con
 		Status:             StatusOK,
 		ContractPath:       cleanPath(contractPath),
 		ComposeSource:      cleanPath(composeSource),
+		SourceKind:         InitSourceCompose,
+		ImportServiceCount: n,
+		NextActions:        InitOrientNextActions(contractPath),
+	}
+	if proj != "" {
+		doc.Project = proj
+	}
+	return doc
+}
+
+// FromInitDockerfileSuccess builds a successful init document after Dockerfile --from-codebase.
+func FromInitDockerfileSuccess(contractPath, dockerfileSource string, c *spec.Contract) *Document {
+	n := 0
+	proj := ""
+	if c != nil {
+		n = len(c.Services)
+		proj = strings.TrimSpace(c.Project)
+	}
+	doc := &Document{
+		FormatVersion:      FormatVersion,
+		Kind:               KindInit,
+		Status:             StatusOK,
+		ContractPath:       cleanPath(contractPath),
+		DockerfileSource:   cleanPath(dockerfileSource),
+		SourceKind:         InitSourceDockerfile,
 		ImportServiceCount: n,
 		NextActions:        InitOrientNextActions(contractPath),
 	}
@@ -75,7 +106,7 @@ func FromInitGreenfieldSuccess(contractPath string) *Document {
 
 // FromInitError builds a failed init document. Prefer *InitTargetExistsError and
 // *composefile.ImportFailure for stable codes.
-func FromInitError(contractPath, composeSource string, err error) *Document {
+func FromInitError(contractPath, composeSource, dockerfileSource string, err error) *Document {
 	code := CodeInitError
 	msg := "init failed"
 	if err != nil {
@@ -96,11 +127,12 @@ func FromInitError(contractPath, composeSource string, err error) *Document {
 		}
 	}
 	doc := &Document{
-		FormatVersion: FormatVersion,
-		Kind:          KindInit,
-		Status:        StatusFailed,
-		ContractPath:  cleanPath(contractPath),
-		ComposeSource: cleanPath(composeSource),
+		FormatVersion:    FormatVersion,
+		Kind:             KindInit,
+		Status:           StatusFailed,
+		ContractPath:     cleanPath(contractPath),
+		ComposeSource:    cleanPath(composeSource),
+		DockerfileSource: cleanPath(dockerfileSource),
 		Issues: []Issue{{
 			Level:   validate.LevelFail,
 			Code:    code,

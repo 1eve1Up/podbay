@@ -1,3 +1,48 @@
+# Sprint 39: Init → Dockerfile stubs
+
+2026-08-08
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Program:** Adoption+ — *Show me a repo I've never seen* (non-Compose).
+
+**Carries from Sprint 38:** Compose-first `init --from-codebase` shipped. Dockerfile-only repos still failed discovery even though build support already existed in the contract/runner.
+
+---
+
+## Sprint goal
+
+Extend `podbay init --from-codebase`: after Compose discovery misses, discover a Dockerfile, write a first-pass single-service build stub, hand off to onboard / validate.
+
+---
+
+### What happened
+
+We shipped `composefile.DiscoverDockerfile`, Compose-miss Dockerfile stub emit, `kind: init` JSON with `source_kind` / `dockerfile_source` / `codebase_discovery_not_found`, Compose preference + greenfield preserved, offline `ci-dockerfile-from-codebase-demo.sh`, and docs for three arrive paths. Eight **`feature/PIN-3901`** … **`feature/PIN-3908`** merges on **`main`**; **`go test ./...`** green (**982 insertions / 42 deletions** across **16** files, **`5816c88`** … **`1e01823`**). Perf track deferred.
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-08-08 (UTC, sprint wrap)
+- **Scope**: Adoption+; Dockerfile-only from-codebase fallback (no language heuristics, no ML).
+
+### 5 whys (why Dockerfile-only repos still could not arrive after Sprint 38)
+
+1. **Why couldn’t agents start on an unseen Dockerfile-only repo?** Compose from-codebase still failed when no Compose file existed.
+2. **Why was adoption width incomplete?** North Star / Clarity do not stop at Compose converters; many apps are Dockerfile-only.
+3. **Why not language scanning / LLM codegen?** Build fields already existed; the gap was discover + honest stub + same orient dialect.
+4. **Why not pivot to env/contract cache?** Latency polish does not open the front door for non-Compose repos.
+5. **Root lesson:** **Adoption width is Compose-first, then Dockerfile fallback**—same `--from-codebase` surface, same onboard/validate dialect, honest first-pass stub.
+
+### Actions
+
+- [x] Discovery, Dockerfile fallback, JSON, next steps, precedence proof, demo, docs, exit bar (**PIN-3901** … **PIN-3908**).
+- [ ] Broader codebase heuristics (deferred — adoption++).
+- [ ] Env/contract cache; parallel / `--no-probes` explain (deferred — perf track).
+
 # Sprint 38: Init → from-codebase
 
 2026-08-07
@@ -40,7 +85,7 @@ We shipped `composefile.Discover`, `init --from-codebase` (reuse import pipeline
 ### Actions
 
 - [x] Discovery, from-codebase, JSON, next steps, greenfield proof, demo, docs, exit bar (**PIN-3801** … **PIN-3808**).
-- [ ] Dockerfile-only / non-Compose stubs (deferred).
+- [x] Dockerfile-only / non-Compose stubs (shipped in Sprint 39).
 - [ ] Env/contract cache; parallel / `--no-probes` explain (deferred — perf track).
 
 # Sprint 37: Explain / onboard → orientation

@@ -18,6 +18,12 @@ const (
 	// CodeComposeDiscoveryNotFound is returned by Discover when no well-known
 	// Compose file exists in the directory (and no usable explicit path was given).
 	CodeComposeDiscoveryNotFound = "compose_discovery_not_found"
+	// CodeDockerfileDiscoveryNotFound is returned by DiscoverDockerfile when no
+	// well-known Dockerfile exists in the directory (and no usable explicit path was given).
+	CodeDockerfileDiscoveryNotFound = "dockerfile_discovery_not_found"
+	// CodeCodebaseDiscoveryNotFound is returned by init --from-codebase when neither a
+	// Compose file nor a Dockerfile can be discovered.
+	CodeCodebaseDiscoveryNotFound = "codebase_discovery_not_found"
 )
 
 // ImportFailure is a compose load/parse/include error with a stable machine code.
