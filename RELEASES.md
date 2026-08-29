@@ -1,5 +1,23 @@
 # Podbay Releases
 
+## v2026.8.0
+
+**Date:** August 2026  
+**Stability:** public preview  
+**Contract status:** evolving  
+
+### Shipped scope (additions since `v2026.7.0`)
+
+**Arrive / orientation** — a machine-readable front door before validate/deploy:
+
+- **`podbay onboard --json`** — versioned `kind: orientation` document (shared with the additive `orientation` object on `explain --json`): project identity, graph skim, optional live runtime, ordered `next_actions`. Structured context only — not diagnosis or remediation. See [docs/cli-json.md](docs/cli-json.md).
+- **Requirements skim** — orientation names published `ports`, `expose`, `health` (`http` / `exec`), and `source` (`build` / `image`) per in-scope service.
+- **`podbay init --from-codebase`** — Compose-first discovery writes a first-pass `podbay.yaml` and hands off to onboard / validate; `kind: init` JSON includes `source_kind` / `compose_source` and stable discovery codes.
+- **Dockerfile-only fallback** — when Compose discovery misses, a single-service build stub is written. Declared `EXPOSE` / `HEALTHCHECK` fill `expose` / `health.exec`; host binds are not invented. Dockerfile success JSON lists `extracted` / `gaps`.
+- **Docs / demos** — agent-loop and cli-json cover the arrive path; sprint 38–40 blogs; `examples/ci-orientation-demo.sh`, `examples/ci-from-codebase-demo.sh`, and `examples/ci-dockerfile-from-codebase-demo.sh`.
+
+Also included relative to `v2026.7.0`: sprint 33–40 wrap material in README / sprint-history / blogs, and GitHub Actions bumps (`actions/setup-go` 6 → 7, `actions/setup-python@v7`). No breaking contract or CLI changes are called out.
+
 ## v2026.7.0
 
 **Date:** August 2026  

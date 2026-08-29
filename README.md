@@ -48,7 +48,7 @@ Podbay uses calendar-based release versions. Calendar versions identify releases
 - Writes deploy receipts with `podbay deploy --receipt` (file or directory store): success evidence and health-gate attempt receipts, listable via `podbay receipt list` / `last-ok` / `handoff`.
 - Compares contract vs runtime with `podbay diff`, receipt vs receipt with `podbay diff before.json after.json`, or `--vs-last-ok` against a receipt store.
 - Explains runtime state with `podbay explain`, including health probes and dependency context.
-- Emits versioned JSON for agents and CI on key commands: `validate`, `deploy`, `diff`, `receipt`, `teardown`, `down`, and `logs`.
+- Emits versioned JSON for agents and CI on key commands: `init`, `onboard`, `validate`, `deploy`, `diff`, `receipt`, `teardown`, `down`, and `logs`.
 - Handles practical Podman parity issues that otherwise waste operator and agent time: named volume `:U`, Podman Machine DNS, `host-gateway`, `host.docker.internal` / `host.containers.internal`, network MTU, and health/log failure hints.
 
 ## Documentation

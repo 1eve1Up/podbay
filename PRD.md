@@ -24,9 +24,9 @@ Podbay fixes that.
 
 It is the system of record for how an application is supposed to exist at runtime—and whether that is actually true.
 
-## Implementation Status: v2026.7.0 Public Preview
+## Implementation Status: v2026.8.0 Public Preview
 
-`v2026.7.0` is the current public August 2026 preview release. It is usable for narrow Podman stacks, but the `podbay.yaml` contract is not yet 1.0-stable.
+`v2026.8.0` is the current public August 2026 preview release. It is usable for narrow Podman stacks, but the `podbay.yaml` contract is not yet 1.0-stable.
 
 Podbay uses calendar-based release versions. Calendar versions identify releases; they are not a substitute for compatibility promises. Until a future `v2026.x-stable` or `v1.0` commitment:
 
@@ -35,18 +35,20 @@ Podbay uses calendar-based release versions. Calendar versions identify releases
 - **CLI compatibility:** core commands are intended to stay scriptable, especially with `--json`, but flags and output details may still change during public preview.
 - **Migration policy:** release notes will call out breaking changes and provide migration guidance when contract, receipt, or CLI behavior changes.
 
-Shipped in public preview through `v2026.7.0`:
+Shipped in public preview through `v2026.8.0`:
 
 - Podman execution backend
 - preflight validation
 - Compose import for a documented subset
+- brownfield arrive via `podbay init --from-codebase` (Compose preferred, Dockerfile fallback; declared `EXPOSE` / `HEALTHCHECK` fill only)
+- orientation (`podbay onboard --json`; additive `orientation` on `explain --json`)
 - deploy receipts (success evidence + health-gate attempt receipts; directory store; `receipt list` / `last-ok` / `handoff`)
 - contract-vs-runtime and receipt-vs-receipt diff (including `--vs-last-ok`)
 - versioned JSON output for automation
 - factual runtime inspection through `podbay explain`
 - partial-deploy agent loop (roots, `--dependents`, structured health-gate failures, batch `logs`)
 
-Not shipped in public preview through `v2026.7.0`:
+Not shipped in public preview through `v2026.8.0`:
 
 - Quadlet/systemd compilation
 - causal/root-cause diagnosis in `podbay explain` (structured receipt handoff next-steps are not diagnosis)
@@ -64,6 +66,8 @@ Not shipped in public preview through `v2026.7.0`:
 - **`podbay logs` partial selection and batch `--json`:** optional service roots and **`--dependents`** (same resolution as **`diff`** / **`deploy`**); **`logs --json`** success includes **`log_entries[]`** for all resolved services, with top-level **`service`** / **`log_body`** when exactly one service resolves. See [docs/cli-json.md](docs/cli-json.md) and [RELEASES](RELEASES.md).
 - **`podbay deploy --json` health-gate failures:** structured **`issues[]`** with stable codes **`deploy_health_timeout`**, **`deploy_health_probe_failed`**, **`deploy_external_dep_unhealthy`**, and per-issue **`service`**; non-health failures still use **`deploy_error`**. Success JSON unchanged. Agents can follow failed partial deploy with **`logs`** / **`explain`** on the same roots. See [docs/cli-json.md](docs/cli-json.md) and [RELEASES](RELEASES.md).
 - **End-to-end partial-deploy agent loop:** **`examples/ci-partial-agent-loop-demo.sh`** chains **`validate` → `deploy` → `diff` → `logs` → `down`** on shared partial roots (`happy` mode) and documents the **`deploy_health_*` → `logs` → `explain` → `down`** failure branch (`fail` mode). No new CLI JSON shapes. See [docs/agent-loop.md](docs/agent-loop.md) and [RELEASES](RELEASES.md).
+- **`podbay onboard --json` / orientation:** versioned **`kind: orientation`** (shared with additive **`orientation`** on **`explain --json`**): identity, graph skim including ports / expose / health / source, optional live runtime, ordered **`next_actions`**. Structured context only — not diagnosis. See [docs/cli-json.md](docs/cli-json.md) and [RELEASES](RELEASES.md).
+- **`podbay init --from-codebase`:** Compose-first discovery writes a first-pass **`podbay.yaml`** and hands off to onboard / validate; Dockerfile-only fallback writes a single-service build stub, filling declared **`EXPOSE`** / **`HEALTHCHECK`** without inventing host binds. **`kind: init`** JSON includes **`source_kind`**, source path, and Dockerfile **`extracted`** / **`gaps`**. See [docs/cli-json.md](docs/cli-json.md) and [RELEASES](RELEASES.md).
 
 ## 2. Problem Statement
 
@@ -190,7 +194,7 @@ Shipped today:
 
 - Podman
 
-Planned / not shipped in public preview through `v2026.7.0`:
+Planned / not shipped in public preview through `v2026.8.0`:
 
 - Quadlet / systemd
 
@@ -206,7 +210,7 @@ Shipped today: factual runtime inspection.
 - "What changed?"
 - "What is broken?"
 
-Planned / not shipped in public preview through `v2026.7.0`: causal diagnosis in `podbay explain`.
+Planned / not shipped in public preview through `v2026.8.0`: causal diagnosis in `podbay explain`.
 
 - "What should I do next?" as root-cause inference (structured `receipt handoff` next-action hints ship; they are not diagnosis)
 
@@ -264,7 +268,7 @@ podbay deploy
 podbay explain
 ```
 
-Current `v2026.7.0` behavior: factual runtime state, health probes, dependency context, and unexpected containers. It does not infer root cause. For deploy evidence history and structured next-step hints, use receipts (`list` / `last-ok` / `handoff`) — see [docs/cli-json.md](docs/cli-json.md).
+Current `v2026.8.0` behavior: factual runtime state, health probes, dependency context, and unexpected containers. It does not infer root cause. For project-shape next-step hints, use `podbay onboard --json` (and additive `orientation` on `explain --json`). For deploy evidence history and structured failure next-step hints, use receipts (`list` / `last-ok` / `handoff`) — see [docs/cli-json.md](docs/cli-json.md).
 
 Future diagnostic direction:
 
