@@ -51,6 +51,9 @@ func TestAttachRuntime_unhealthyAdjustsNextActions(t *testing.T) {
 	if strings.Join(idle, "\n") == joined {
 		t.Fatal("next_actions should change from idle when unhealthy")
 	}
+	if strings.Contains(joined, HandTightenHint) {
+		t.Fatalf("unhealthy playbook should not add hand-tighten: %v", doc.NextActions)
+	}
 }
 
 func TestAttachRuntime_unavailableKeepsIdleHints(t *testing.T) {
@@ -66,6 +69,27 @@ func TestAttachRuntime_unavailableKeepsIdleHints(t *testing.T) {
 	joined := strings.Join(doc.NextActions, "\n")
 	if !strings.Contains(joined, "podbay validate") || !strings.Contains(joined, "podbay deploy") {
 		t.Fatalf("idle next_actions expected: %v", doc.NextActions)
+	}
+	if !strings.Contains(joined, HandTightenHint) {
+		t.Fatalf("unavailable attach should keep hand-tighten on a thin contract: %v", doc.NextActions)
+	}
+}
+
+func TestAttachRuntime_allMissingKeepsHandTighten(t *testing.T) {
+	c, path := loadFixtureContract(t)
+	doc, err := Build(c, path, BuildOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	AttachRuntime(doc, true, []RuntimeService{
+		{Name: "web", Missing: true},
+	})
+	joined := strings.Join(doc.NextActions, "\n")
+	if !strings.Contains(joined, "podbay validate") || !strings.Contains(joined, "podbay deploy") {
+		t.Fatalf("all-missing next_actions: %v", doc.NextActions)
+	}
+	if !strings.Contains(joined, HandTightenHint) {
+		t.Fatalf("arrive with Podman but nothing deployed must keep hand-tighten: %v", doc.NextActions)
 	}
 }
 
@@ -85,5 +109,8 @@ func TestAttachRuntime_healthyDiffPath(t *testing.T) {
 	}
 	if strings.Contains(joined, "podbay down") {
 		t.Fatalf("healthy path should not lead with down: %v", doc.NextActions)
+	}
+	if strings.Contains(joined, HandTightenHint) {
+		t.Fatalf("healthy playbook should not add hand-tighten: %v", doc.NextActions)
 	}
 }

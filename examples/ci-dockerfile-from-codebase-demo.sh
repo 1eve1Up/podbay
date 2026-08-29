@@ -52,7 +52,7 @@ fi
   and (.active_services | length) > 0
   and (.next_actions | length) >= 1
   and (.next_actions | map(tostring) | join("\n") | test("hand-tighten"))
-  and (.graph[0].source == "build")
+  and ([.graph[] | select(.source == "build")] | length) > 0
 ' >/dev/null
 
 "$PODBAY" validate -f "$CONTRACT" --json | tee "$WORK/validate.json" | jq -e '

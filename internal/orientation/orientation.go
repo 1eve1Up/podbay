@@ -148,7 +148,9 @@ func buildGraphSkim(active map[string]spec.Service, names []string) []GraphServi
 
 // AttachRuntime fills doc.Runtime from precomputed rows (e.g. explain service-status facts)
 // and refreshes NextActions for the observed live state. Does not call Podman.
-// When rows is nil/empty and available is false, Runtime is marked unavailable and idle next actions are kept.
+// When available is false, Runtime is marked unavailable and idle next actions are kept.
+// Arrive (unavailable or all-missing) keeps HandTightenHint when the graph still
+// lacks published ports or health; unhealthy/healthy playbooks do not.
 const (
 	HealthHTTP  = "http"
 	HealthExec  = "exec"
@@ -183,16 +185,17 @@ func AttachRuntime(doc *Document, available bool, rows []RuntimeService) {
 	if doc == nil {
 		return
 	}
+	tighten := graphNeedsHandTighten(doc.Graph)
 	if !available {
 		doc.Runtime = &RuntimeSummary{Available: false}
-		doc.NextActions = idleNextActions(doc.ContractPath, doc.DeployServices, false)
+		doc.NextActions = idleNextActions(doc.ContractPath, doc.DeployServices, tighten)
 		return
 	}
 	doc.Runtime = &RuntimeSummary{
 		Available: true,
 		Services:  append([]RuntimeService(nil), rows...),
 	}
-	doc.NextActions = liveNextActions(doc.ContractPath, doc.DeployServices, rows)
+	doc.NextActions = liveNextActions(doc.ContractPath, doc.DeployServices, rows, tighten)
 }
 
 // idleNextActions returns ordered agent-loop gates for a cold/idle contract (no live runtime).
@@ -223,7 +226,16 @@ func contractNeedsHandTighten(active map[string]spec.Service, names []string) bo
 	return false
 }
 
-func liveNextActions(contractPath string, deployRoots []string, rows []RuntimeService) []string {
+func graphNeedsHandTighten(graph []GraphService) bool {
+	for _, g := range graph {
+		if len(g.Ports) == 0 || g.Health == "" {
+			return true
+		}
+	}
+	return false
+}
+
+func liveNextActions(contractPath string, deployRoots []string, rows []RuntimeService, handTighten bool) []string {
 	f := "-f " + contractPath
 	roots := rootSuffix(deployRoots)
 	focus := ""
@@ -242,11 +254,15 @@ func liveNextActions(contractPath string, deployRoots []string, rows []RuntimeSe
 		}
 	}
 	if allMissing {
-		return []string{
+		actions := []string{
 			fmt.Sprintf("podbay validate %s%s --json", f, roots),
 			fmt.Sprintf("podbay deploy %s%s --json", f, roots),
 			fmt.Sprintf("podbay explain %s%s --json", f, roots),
 		}
+		if handTighten {
+			actions = append(actions, HandTightenHint)
+		}
+		return actions
 	}
 	if anyBad {
 		svc := ""

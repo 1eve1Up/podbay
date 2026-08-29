@@ -21,7 +21,7 @@ Podbay’s JSON output is designed for tools, agents, and CI. Versioned document
 - identity: `project`, `contract_path`, optional `profiles` / `deploy_services` / `dependents_expand`
 - `active_services`, `graph` (depends_on skim plus requirements: `ports`, `expose`, `health` as `http`/`exec`, `source` as `build`/`image`)
 - optional `runtime` (live summary when Podman is available; omitted or `available: false` offline)
-- `next_actions` — ordered agent-loop CLI hints (rule-based)
+- `next_actions` — ordered agent-loop CLI hints (rule-based). Arrive (offline or Podman up with nothing deployed) keeps a hand-tighten hint when published ports or health are still missing; live unhealthy/healthy playbooks do not.
 - `note` — always states structured context/next-steps only (not automatic remediation or root-cause diagnosis)
 
 Load failures with `--json` use `status: failed` and issue code **`orientation_load_error`**.
