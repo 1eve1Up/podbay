@@ -34,21 +34,62 @@ EOF
   and (.service_count | type == "number")
   and (.next_actions | map(tostring) | join("\n") | test("onboard"))
   and (.next_actions | map(tostring) | join("\n") | test("validate"))
+  and (.next_actions | map(tostring) | join("\n") | test("hand-tighten"))
+  and ((.extracted | not) or (.extracted | length) == 0)
+  and (.gaps | index("published_ports") != null)
 ' >/dev/null
 
 test -f "$CONTRACT"
 grep -q 'dockerfile: Dockerfile' "$CONTRACT"
+if grep -q '^[[:space:]]*ports:' "$CONTRACT"; then
+  echo "ci-dockerfile-from-codebase-demo: bare Dockerfile invented ports" >&2
+  exit 1
+fi
 
 "$PODBAY" onboard -f "$CONTRACT" --json | tee "$WORK/onboard.json" | jq -e '
   .kind == "orientation"
   and .format_version == 1
   and (.active_services | length) > 0
   and (.next_actions | length) >= 1
+  and (.next_actions | map(tostring) | join("\n") | test("hand-tighten"))
+  and (.graph[0].source == "build")
 ' >/dev/null
 
 "$PODBAY" validate -f "$CONTRACT" --json | tee "$WORK/validate.json" | jq -e '
   .kind == "validate"
   and .status == "ok"
+' >/dev/null
+
+# Declared EXPOSE + HEALTHCHECK are copied; published ports stay hand-tighten.
+RICH="$WORK/rich"
+mkdir -p "$RICH"
+cat >"$RICH/Dockerfile" <<'EOF'
+FROM docker.io/library/alpine:3.20
+EXPOSE 8080
+HEALTHCHECK CMD wget -q -O- http://127.0.0.1/
+CMD ["sleep", "infinity"]
+EOF
+RICH_CONTRACT="$RICH/podbay.yaml"
+"$PODBAY" init --from-codebase "$RICH" -f "$RICH_CONTRACT" --json | tee "$RICH/init.json" | jq -e '
+  .kind == "init"
+  and .status == "ok"
+  and .source_kind == "dockerfile"
+  and (.extracted | index("expose") != null)
+  and (.extracted | index("health") != null)
+  and (.gaps | index("published_ports") != null)
+' >/dev/null
+grep -q 'expose:' "$RICH_CONTRACT"
+grep -q 'health:' "$RICH_CONTRACT"
+if grep -q '^[[:space:]]*ports:' "$RICH_CONTRACT"; then
+  echo "ci-dockerfile-from-codebase-demo: EXPOSE invented published ports" >&2
+  exit 1
+fi
+"$PODBAY" onboard -f "$RICH_CONTRACT" --json | tee "$RICH/onboard.json" | jq -e '
+  .kind == "orientation"
+  and (.graph[0].source == "build")
+  and (.graph[0].health == "exec")
+  and (.graph[0].expose | index("8080") != null)
+  and ((.graph[0].ports | not) or (.graph[0].ports | length) == 0)
 ' >/dev/null
 
 # Compose preference: when both exist, Compose wins.

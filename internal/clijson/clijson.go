@@ -110,6 +110,12 @@ type Document struct {
 	SourceKind string `json:"source_kind,omitempty"`
 	// NextActions lists ordered CLI hints for KindInit success (onboard / validate); omitted when empty.
 	NextActions []string `json:"next_actions,omitempty"`
+	// Extracted lists Dockerfile instructions copied onto the stub (expose, health).
+	// KindInit Dockerfile success only; omitted when empty.
+	Extracted []string `json:"extracted,omitempty"`
+	// Gaps lists still-missing operational fields after Dockerfile stub fill
+	// (expose, health, published_ports). KindInit Dockerfile success only.
+	Gaps []string `json:"gaps,omitempty"`
 	// Receipt list (KindReceiptList): directory inventoried and newest-first entries.
 	ReceiptListDir string             `json:"receipt_list_dir,omitempty"`
 	Receipts       []ReceiptListEntry `json:"receipts,omitempty"`

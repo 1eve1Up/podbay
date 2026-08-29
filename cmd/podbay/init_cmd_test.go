@@ -234,6 +234,41 @@ func TestInit_fromCodebase_dockerfileOnly(t *testing.T) {
 	if !strings.Contains(out, "podbay onboard") || !strings.Contains(out, "podbay validate") {
 		t.Fatalf("missing next steps: %q", out)
 	}
+	if !strings.Contains(out, clijson.InitHandTightenHint) {
+		t.Fatalf("missing hand-tighten hint: %q", out)
+	}
+}
+
+func TestInit_fromCodebase_dockerfileCopiesExposeAndHealth(t *testing.T) {
+	dir := t.TempDir()
+	body := "FROM alpine:3.20\nEXPOSE 8080\nHEALTHCHECK CMD wget -q -O- http://127.0.0.1/\n"
+	if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(dir, spec.DefaultFilename)
+	fileFlag := target
+	cmd := initCmd(&fileFlag, filepath.Join(dir, "ignored.yaml"))
+	cmd.SetArgs([]string{"--from-codebase", dir})
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute: %v\n%s", err, buf.String())
+	}
+	data, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(data)
+	if !strings.Contains(s, "expose:") || !strings.Contains(s, "8080") {
+		t.Fatalf("missing expose: %s", s)
+	}
+	if !strings.Contains(s, "health:") || !strings.Contains(s, "wget") {
+		t.Fatalf("missing health.exec: %s", s)
+	}
+	if strings.Contains(s, "8080:8080") || strings.Contains(s, "ports:") {
+		t.Fatalf("invented published ports: %s", s)
+	}
 }
 
 func TestInit_fromCodebase_composePreferredOverDockerfile(t *testing.T) {
@@ -459,14 +494,17 @@ func TestInit_fromCodebase_dockerfileOrientMatchesComposeDialect(t *testing.T) {
 	if err := json.Unmarshal(buf.Bytes(), &doc); err != nil {
 		t.Fatalf("json: %v\n%s", err, buf.String())
 	}
-	want := clijson.InitOrientNextActions(target)
-	if len(doc.NextActions) != len(want) {
-		t.Fatalf("next_actions=%v want %v", doc.NextActions, want)
+	wantGates := clijson.InitOrientNextActions(target)
+	if len(doc.NextActions) < len(wantGates) {
+		t.Fatalf("next_actions=%v want prefix %v", doc.NextActions, wantGates)
 	}
-	for i := range want {
-		if doc.NextActions[i] != want[i] {
-			t.Fatalf("next_actions[%d]=%q want %q", i, doc.NextActions[i], want[i])
+	for i := range wantGates {
+		if doc.NextActions[i] != wantGates[i] {
+			t.Fatalf("next_actions[%d]=%q want %q", i, doc.NextActions[i], wantGates[i])
 		}
+	}
+	if !strings.Contains(strings.Join(doc.NextActions, "\n"), clijson.InitHandTightenHint) {
+		t.Fatalf("missing hand-tighten hint: %v", doc.NextActions)
 	}
 	if strings.Contains(strings.ToLower(strings.Join(doc.NextActions, " ")), "deploy") {
 		t.Fatalf("must not auto-suggest deploy: %v", doc.NextActions)
@@ -500,6 +538,12 @@ func TestInit_fromCodebase_jsonDockerfileSuccess(t *testing.T) {
 	}
 	if !strings.HasSuffix(doc.DockerfileSource, "Dockerfile") {
 		t.Fatalf("dockerfile_source=%q", doc.DockerfileSource)
+	}
+	if len(doc.Extracted) != 0 {
+		t.Fatalf("bare Dockerfile extracted=%v", doc.Extracted)
+	}
+	if !strings.Contains(strings.Join(doc.Gaps, ","), clijson.InitFieldPublishedPorts) {
+		t.Fatalf("gaps=%v", doc.Gaps)
 	}
 	if doc.ComposeSource != "" {
 		t.Fatalf("compose_source should be empty: %q", doc.ComposeSource)

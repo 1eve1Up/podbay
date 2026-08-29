@@ -20,6 +20,11 @@ project: onboarddemo
 services:
   web:
     image: docker.io/library/nginx:alpine
+    ports:
+      - "8080:80"
+    health:
+      http:
+        url: http://127.0.0.1:8080/
 `
 	if err := os.WriteFile(path, []byte(yaml), 0o644); err != nil {
 		t.Fatal(err)
@@ -57,6 +62,18 @@ services:
 	}
 	if !strings.Contains(joined, "validate") || !strings.Contains(joined, "deploy") {
 		t.Fatalf("next_actions: %s", joined)
+	}
+	graph, _ := m["graph"].([]any)
+	if len(graph) != 1 {
+		t.Fatalf("graph: %v", graph)
+	}
+	row, _ := graph[0].(map[string]any)
+	if row["source"] != orientation.SourceImage || row["health"] != orientation.HealthHTTP {
+		t.Fatalf("requirements skim: %+v", row)
+	}
+	ports, _ := row["ports"].([]any)
+	if len(ports) != 1 || ports[0] != "8080:80" {
+		t.Fatalf("ports: %v", ports)
 	}
 }
 

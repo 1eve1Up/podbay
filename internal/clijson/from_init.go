@@ -34,6 +34,9 @@ func (e *InitTargetExistsError) Error() string {
 	return fmt.Sprintf("%s already exists", e.Path)
 }
 
+// InitHandTightenHint is appended when a Dockerfile stub still lacks published ports or health.
+const InitHandTightenHint = "hand-tighten: add published ports and/or health on the first-pass contract"
+
 // InitOrientNextActions returns onboard / validate CLI hints for a written contract path.
 func InitOrientNextActions(contractPath string) []string {
 	p := cleanPath(contractPath)
@@ -41,6 +44,24 @@ func InitOrientNextActions(contractPath string) []string {
 		fmt.Sprintf("podbay onboard -f %s --json", p),
 		fmt.Sprintf("podbay validate -f %s --json", p),
 	}
+}
+
+// InitDockerfileNextActions is InitOrientNextActions plus a hand-tighten hint when gaps remain.
+func InitDockerfileNextActions(contractPath string, gaps []string) []string {
+	actions := InitOrientNextActions(contractPath)
+	if dockerfileNeedsHandTighten(gaps) {
+		actions = append(actions, InitHandTightenHint)
+	}
+	return actions
+}
+
+func dockerfileNeedsHandTighten(gaps []string) bool {
+	for _, g := range gaps {
+		if g == InitFieldHealth || g == InitFieldPublishedPorts {
+			return true
+		}
+	}
+	return false
 }
 
 // FromInitFromCodebaseSuccess builds a successful init document after Compose --from-codebase.
@@ -76,6 +97,7 @@ func FromInitDockerfileSuccess(contractPath, dockerfileSource string, c *spec.Co
 		n = len(c.Services)
 		proj = strings.TrimSpace(c.Project)
 	}
+	extracted, gaps := dockerfileFieldReport(c)
 	doc := &Document{
 		FormatVersion:      FormatVersion,
 		Kind:               KindInit,
@@ -84,12 +106,59 @@ func FromInitDockerfileSuccess(contractPath, dockerfileSource string, c *spec.Co
 		DockerfileSource:   cleanPath(dockerfileSource),
 		SourceKind:         InitSourceDockerfile,
 		ImportServiceCount: n,
-		NextActions:        InitOrientNextActions(contractPath),
+		NextActions:        InitDockerfileNextActions(contractPath, gaps),
+		Extracted:          extracted,
+		Gaps:               gaps,
 	}
 	if proj != "" {
 		doc.Project = proj
 	}
 	return doc
+}
+
+const (
+	InitFieldExpose         = "expose"
+	InitFieldHealth         = "health"
+	InitFieldPublishedPorts = "published_ports"
+)
+
+// DockerfileGaps returns still-missing operational fields for a Dockerfile stub.
+func DockerfileGaps(c *spec.Contract) []string {
+	_, gaps := dockerfileFieldReport(c)
+	return gaps
+}
+
+func dockerfileFieldReport(c *spec.Contract) (extracted, gaps []string) {
+	svc := dockerfileStubService(c)
+	if len(svc.Expose) > 0 {
+		extracted = append(extracted, InitFieldExpose)
+	} else {
+		gaps = append(gaps, InitFieldExpose)
+	}
+	if svc.Health.HasProbe() {
+		extracted = append(extracted, InitFieldHealth)
+	} else {
+		gaps = append(gaps, InitFieldHealth)
+	}
+	if len(svc.Ports) > 0 {
+		extracted = append(extracted, InitFieldPublishedPorts)
+	} else {
+		gaps = append(gaps, InitFieldPublishedPorts)
+	}
+	return extracted, gaps
+}
+
+func dockerfileStubService(c *spec.Contract) spec.Service {
+	if c == nil || len(c.Services) == 0 {
+		return spec.Service{}
+	}
+	if svc, ok := c.Services["app"]; ok {
+		return svc
+	}
+	for _, name := range spec.ServiceNamesSorted(c.Services) {
+		return c.Services[name]
+	}
+	return spec.Service{}
 }
 
 // FromInitGreenfieldSuccess builds a successful init document for the nginx template path.

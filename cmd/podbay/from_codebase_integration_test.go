@@ -115,6 +115,9 @@ func TestDockerfileFromCodebaseFlow_initOnboardValidate(t *testing.T) {
 	if initDoc.SourceKind != clijson.InitSourceDockerfile {
 		t.Fatalf("source_kind=%q", initDoc.SourceKind)
 	}
+	if len(initDoc.Extracted) != 0 {
+		t.Fatalf("bare extracted=%v", initDoc.Extracted)
+	}
 
 	onboard := onboardCmd(&fileFlag, target)
 	var onboardBuf bytes.Buffer
@@ -164,4 +167,62 @@ func TestDockerfileFromCodebaseDemoScript_offline(t *testing.T) {
 	if !strings.Contains(string(out), "ci-dockerfile-from-codebase-demo: ok") {
 		t.Fatalf("unexpected output: %s", out)
 	}
+}
+
+func TestDockerfileFromCodebaseFlow_exposeHealthSkim(t *testing.T) {
+	dir := t.TempDir()
+	body := "FROM alpine:3.20\nEXPOSE 8080\nHEALTHCHECK CMD wget -q -O- http://127.0.0.1/\n"
+	if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(dir, spec.DefaultFilename)
+	fileFlag := target
+
+	init := initCmd(&fileFlag, target)
+	init.SetArgs([]string{"--from-codebase", dir, "--json"})
+	var initBuf bytes.Buffer
+	init.SetOut(&initBuf)
+	if err := init.Execute(); err != nil {
+		t.Fatalf("init: %v\n%s", err, initBuf.String())
+	}
+	var initDoc clijson.Document
+	if err := json.Unmarshal(initBuf.Bytes(), &initDoc); err != nil {
+		t.Fatalf("init json: %v\n%s", err, initBuf.String())
+	}
+	if !containsStr(initDoc.Extracted, clijson.InitFieldExpose) || !containsStr(initDoc.Extracted, clijson.InitFieldHealth) {
+		t.Fatalf("extracted=%v", initDoc.Extracted)
+	}
+	if !containsStr(initDoc.Gaps, clijson.InitFieldPublishedPorts) {
+		t.Fatalf("gaps=%v", initDoc.Gaps)
+	}
+
+	onboard := onboardCmd(&fileFlag, target)
+	var onboardBuf bytes.Buffer
+	onboard.SetOut(&onboardBuf)
+	onboard.SetArgs([]string{"--json"})
+	if err := onboard.Execute(); err != nil {
+		t.Fatalf("onboard: %v\n%s", err, onboardBuf.String())
+	}
+	var orient orientation.Document
+	if err := json.Unmarshal(onboardBuf.Bytes(), &orient); err != nil {
+		t.Fatalf("onboard json: %v", err)
+	}
+	if len(orient.Graph) != 1 || orient.Graph[0].Source != orientation.SourceBuild || orient.Graph[0].Health != orientation.HealthExec {
+		t.Fatalf("skim: %+v", orient.Graph)
+	}
+	if len(orient.Graph[0].Expose) != 1 || orient.Graph[0].Expose[0] != "8080" {
+		t.Fatalf("expose: %v", orient.Graph[0].Expose)
+	}
+	if len(orient.Graph[0].Ports) != 0 {
+		t.Fatalf("invented ports: %v", orient.Graph[0].Ports)
+	}
+}
+
+func containsStr(have []string, want string) bool {
+	for _, s := range have {
+		if s == want {
+			return true
+		}
+	}
+	return false
 }

@@ -46,6 +46,12 @@ func TestOrientationFlow_initOnboardVocabulary(t *testing.T) {
 	if len(doc.ActiveServices) == 0 || len(doc.Graph) == 0 || len(doc.NextActions) < 3 {
 		t.Fatalf("incomplete orientation: %+v", doc)
 	}
+	if len(doc.Graph) != 1 || doc.Graph[0].Source != orientation.SourceImage || doc.Graph[0].Health != orientation.HealthHTTP {
+		t.Fatalf("greenfield requirements skim: %+v", doc.Graph)
+	}
+	if len(doc.Graph[0].Ports) == 0 {
+		t.Fatalf("greenfield must list ports: %+v", doc.Graph[0])
+	}
 
 	c, loaded, err := spec.Load(target)
 	if err != nil {

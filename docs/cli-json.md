@@ -19,7 +19,7 @@ Podbay’s JSON output is designed for tools, agents, and CI. Versioned document
 `podbay onboard --json` emits a versioned **`kind: orientation`** document shared with the additive **`orientation`** object on **`explain --json`**:
 
 - identity: `project`, `contract_path`, optional `profiles` / `deploy_services` / `dependents_expand`
-- `active_services`, `graph` (depends_on skim)
+- `active_services`, `graph` (depends_on skim plus requirements: `ports`, `expose`, `health` as `http`/`exec`, `source` as `build`/`image`)
 - optional `runtime` (live summary when Podman is available; omitted or `available: false` offline)
 - `next_actions` — ordered agent-loop CLI hints (rule-based)
 - `note` — always states structured context/next-steps only (not automatic remediation or root-cause diagnosis)
@@ -81,7 +81,7 @@ See [contract.md#import-compose---json-ci-and-agents](contract.md) for **`import
 
 Pass **`--json`** to **`podbay init`** for a **`kind: init`** document (`format_version` **1**).
 
-**Success (`status: ok`):** `contract_path` is the written `podbay.yaml`. For **`--from-codebase`**, also `source_kind` (`compose` or `dockerfile`), `compose_source` or `dockerfile_source`, `service_count`, and ordered **`next_actions`** (`onboard` / `validate`). Greenfield success includes `project` and the same next-action dialect.
+**Success (`status: ok`):** `contract_path` is the written `podbay.yaml`. For **`--from-codebase`**, also `source_kind` (`compose` or `dockerfile`), `compose_source` or `dockerfile_source`, `service_count`, and ordered **`next_actions`** (`onboard` / `validate`). Dockerfile success also lists **`extracted`** / **`gaps`** (`expose`, `health`, `published_ports`) and may append a hand-tighten hint when published ports or health are still missing. Greenfield success includes `project` and the same next-action dialect.
 
 **Failure (`status: failed`, exit 1):** `issues[]` with stable codes, including:
 

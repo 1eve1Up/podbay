@@ -1,3 +1,48 @@
+# Sprint 40: Orientation → requirements
+
+2026-08-29
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Program:** Clarity — *what the requirements are*.
+
+**Carries from Sprint 39:** Dockerfile-only `init --from-codebase` shipped. Orientation answered what runs and what depends on what, not what the requirements are. Dockerfile stubs omitted `EXPOSE` / `HEALTHCHECK`.
+
+---
+
+## Sprint goal
+
+Make `onboard` / `explain` orientation name ports, expose, health kind, and build vs image. Fill Dockerfile stubs from declared `EXPOSE` / `HEALTHCHECK` without inventing host binds.
+
+---
+
+### What happened
+
+We shipped `composeimport.ScanDockerfile`, stub fill (`expose` + `health.exec`), init JSON `extracted` / `gaps`, orientation requirements skim, hand-tighten next-step hint, demo coverage for bare vs instruction-bearing Dockerfiles, and docs. Eight **`feature/PIN-4001`** … **`feature/PIN-4008`** merges on **`main`**; **`go test ./...`** green (**994 insertions / 35 deletions** across **19** files, **`1b6febb`** … **`2a8d0e7`**). Perf track deferred.
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-08-29 (UTC, sprint wrap)
+- **Scope**: Clarity; declared-instruction Dockerfile fill + orientation requirements skim (no invented host binds, no language heuristics).
+
+### 5 whys (why North Star still failed after Sprint 39 Dockerfile arrive)
+
+1. **Why didn’t onboard meet the 30-second North Star?** Graph was name + depends_on only; requirements lived in YAML.
+2. **Why was that a Clarity failure?** Dockerfile stubs were build-only; validate was vacuously ok without host ports.
+3. **Why not language scanning?** `EXPOSE` / `HEALTHCHECK` were already in the file; Compose import already translates those shapes.
+4. **Why not invent `80:80` or tighten validate?** Host binds are not what EXPOSE means; workers without ports are legitimate.
+5. **Root lesson:** **Width without declared-requirement extraction leaves hand-tighten tribal**—orientation must name requirements; stubs copy instructions only.
+
+### Actions
+
+- [x] Scan, stub fill, init gaps, orientation skim, hand-tighten hint, demo, docs, exit bar (**PIN-4001** … **PIN-4008**).
+- [ ] Broader codebase heuristics (deferred — adoption++).
+- [ ] Env/contract cache; parallel / `--no-probes` explain (deferred — perf track).
+
 # Sprint 39: Init → Dockerfile stubs
 
 2026-08-08

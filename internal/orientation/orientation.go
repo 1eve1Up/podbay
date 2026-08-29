@@ -4,6 +4,7 @@ package orientation
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/1eve1Up/podbay/internal/spec"
 )
@@ -33,10 +34,14 @@ type Document struct {
 	Note             string          `json:"note"`
 }
 
-// GraphService is a compact depends_on skim for one service in scope.
+// GraphService is a compact depends_on + requirements skim for one service in scope.
 type GraphService struct {
 	Name      string      `json:"name"`
 	DependsOn []GraphEdge `json:"depends_on,omitempty"`
+	Ports     []string    `json:"ports,omitempty"`
+	Expose    []string    `json:"expose,omitempty"`
+	Health    string      `json:"health,omitempty"` // http | exec; omitted when absent
+	Source    string      `json:"source,omitempty"` // build | image
 }
 
 // GraphEdge is one depends_on edge in the graph skim.
@@ -103,7 +108,7 @@ func Build(c *spec.Contract, contractPath string, opts BuildOptions) (*Document,
 		Profiles:       append([]string(nil), opts.Profiles...),
 		ActiveServices: iterate,
 		Graph:          buildGraphSkim(profileActive, iterate),
-		NextActions:    idleNextActions(contractPath, opts.DeployRoots),
+		NextActions:    idleNextActions(contractPath, opts.DeployRoots, contractNeedsHandTighten(profileActive, iterate)),
 		Note:           BoundaryNote,
 	}
 	if len(opts.DeployRoots) > 0 {
@@ -118,6 +123,14 @@ func buildGraphSkim(active map[string]spec.Service, names []string) []GraphServi
 	for _, name := range names {
 		svc := active[name]
 		gs := GraphService{Name: name}
+		if len(svc.Ports) > 0 {
+			gs.Ports = append([]string(nil), svc.Ports...)
+		}
+		if len(svc.Expose) > 0 {
+			gs.Expose = append([]string(nil), svc.Expose...)
+		}
+		gs.Health = healthKind(svc.Health)
+		gs.Source = serviceSource(svc)
 		for _, d := range svc.DependsOn {
 			cond := d.Condition
 			if cond == "" {
@@ -136,13 +149,43 @@ func buildGraphSkim(active map[string]spec.Service, names []string) []GraphServi
 // AttachRuntime fills doc.Runtime from precomputed rows (e.g. explain service-status facts)
 // and refreshes NextActions for the observed live state. Does not call Podman.
 // When rows is nil/empty and available is false, Runtime is marked unavailable and idle next actions are kept.
+const (
+	HealthHTTP  = "http"
+	HealthExec  = "exec"
+	SourceBuild = "build"
+	SourceImage = "image"
+)
+
+func healthKind(h *spec.HealthCheck) string {
+	if h == nil {
+		return ""
+	}
+	if h.HTTP != nil && h.HTTP.URL != "" {
+		return HealthHTTP
+	}
+	if h.Exec != nil && len(h.Exec.Command) > 0 {
+		return HealthExec
+	}
+	return ""
+}
+
+func serviceSource(svc spec.Service) string {
+	if svc.Build != nil && strings.TrimSpace(svc.Build.Context+svc.Build.Dockerfile) != "" {
+		return SourceBuild
+	}
+	if strings.TrimSpace(svc.Image) != "" {
+		return SourceImage
+	}
+	return ""
+}
+
 func AttachRuntime(doc *Document, available bool, rows []RuntimeService) {
 	if doc == nil {
 		return
 	}
 	if !available {
 		doc.Runtime = &RuntimeSummary{Available: false}
-		doc.NextActions = idleNextActions(doc.ContractPath, doc.DeployServices)
+		doc.NextActions = idleNextActions(doc.ContractPath, doc.DeployServices, false)
 		return
 	}
 	doc.Runtime = &RuntimeSummary{
@@ -153,15 +196,31 @@ func AttachRuntime(doc *Document, available bool, rows []RuntimeService) {
 }
 
 // idleNextActions returns ordered agent-loop gates for a cold/idle contract (no live runtime).
-func idleNextActions(contractPath string, deployRoots []string) []string {
+const HandTightenHint = "hand-tighten: add published ports and/or health on the first-pass contract"
+
+func idleNextActions(contractPath string, deployRoots []string, handTighten bool) []string {
 	f := "-f " + contractPath
 	roots := rootSuffix(deployRoots)
-	return []string{
+	actions := []string{
 		fmt.Sprintf("podbay validate %s%s --json", f, roots),
 		fmt.Sprintf("podbay deploy %s%s --json", f, roots),
 		fmt.Sprintf("podbay diff %s%s --json", f, roots),
 		fmt.Sprintf("podbay explain %s%s --json", f, roots),
 	}
+	if handTighten {
+		actions = append(actions, HandTightenHint)
+	}
+	return actions
+}
+
+func contractNeedsHandTighten(active map[string]spec.Service, names []string) bool {
+	for _, name := range names {
+		svc := active[name]
+		if len(svc.Ports) == 0 || !svc.Health.HasProbe() {
+			return true
+		}
+	}
+	return false
 }
 
 func liveNextActions(contractPath string, deployRoots []string, rows []RuntimeService) []string {

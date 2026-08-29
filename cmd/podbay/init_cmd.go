@@ -226,7 +226,11 @@ func initFromDockerfile(
 	}
 	project := filepath.Base(absDir)
 	dfRel := composeimport.DockerfileRelForStub(absDir, absDockerfile)
-	c := composeimport.StubFromDockerfile(project, dfRel)
+	scan, scanErr := composeimport.ScanDockerfile(absDockerfile)
+	if scanErr != nil {
+		scan = composeimport.DockerfileScan{}
+	}
+	c := composeimport.StubFromDockerfileScan(project, dfRel, scan)
 	raw, err := composeimport.MarshalContract(c)
 	if err != nil {
 		return emitFail("", absDockerfile, fmt.Errorf("init --from-codebase: encode: %w", err))
@@ -245,7 +249,7 @@ func initFromDockerfile(
 	}
 	out := cmd.OutOrStdout()
 	fmt.Fprintf(out, "Wrote %s (from %s)\n", target, absDockerfile)
-	printInitOrientHints(out, target)
+	printInitNextActionList(out, clijson.InitDockerfileNextActions(target, clijson.DockerfileGaps(c)))
 	return nil
 }
 
@@ -273,8 +277,12 @@ func printInitNextSteps(cmd *cobra.Command, target string) {
 }
 
 func printInitOrientHints(out io.Writer, target string) {
+	printInitNextActionList(out, clijson.InitOrientNextActions(target))
+}
+
+func printInitNextActionList(out io.Writer, actions []string) {
 	fmt.Fprintln(out, "Next steps:")
-	for _, a := range clijson.InitOrientNextActions(target) {
+	for _, a := range actions {
 		fmt.Fprintf(out, "  %s\n", a)
 	}
 }

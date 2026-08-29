@@ -50,17 +50,19 @@ Agents and humans need the same orientation surface before inventing the first g
 
 | Situation | Command | What you get |
 | --- | --- | --- |
-| Greenfield | `podbay init` then `podbay onboard -f <contract> --json` | Nginx starter YAML + orientation (identity, graph skim, next CLI) |
+| Greenfield | `podbay init` then `podbay onboard -f <contract> --json` | Nginx starter YAML + orientation (identity, graph skim with ports/health/source, next CLI) |
 | Brownfield (Compose in repo) | `podbay init --from-codebase [dir]` then `onboard` / `validate` | Discover well-known Compose → first-pass contract via import pipeline → orient |
-| Brownfield (Dockerfile only) | `podbay init --from-codebase [dir]` then `onboard` / `validate` | After Compose miss, discover Dockerfile → single-service build stub → orient |
+| Brownfield (Dockerfile only) | `podbay init --from-codebase [dir]` then `onboard` / `validate` | After Compose miss, discover Dockerfile → single-service build stub (copy `EXPOSE` → `expose`, `HEALTHCHECK` → `health.exec`; do not invent published ports) → orient |
 | Existing contract, cold | `podbay onboard -f <contract> --json` | Offline orientation (no Podman required) |
 | Live stack | `podbay explain -f <contract> --json` | Factual runtime/health **plus** additive `orientation` block (same vocabulary as onboard) |
 
 **Discovery order** for `--from-codebase`: Compose first (`compose.yaml`, `compose.yml`, `docker-compose.yaml`, `docker-compose.yml`), then Dockerfile fallback (`Dockerfile`, `dockerfile`). Override with `--compose <path>` or force Dockerfile with `--dockerfile <path>` (mutually exclusive). Explicit `podbay import compose` remains available when you already know the Compose file.
 
+**Orientation `graph[]` requirements skim** (additive on each service): published `ports`, `expose`, `health` (`http` / `exec` / omitted when absent), and `source` (`build` or `image`). Agents can answer “what the requirements are” from onboard / explain JSON without a second YAML read.
+
 **Arrive vs fail vs live:**
 
-- **Arrive** — `init` / `init --from-codebase` next steps, then `onboard`: structured context + ordered CLI. Not diagnosis. First-pass Compose import or Dockerfile stub still needs validate / hand-tighten.
+- **Arrive** — `init` / `init --from-codebase` next steps, then `onboard`: structured context + ordered CLI. Not diagnosis. First-pass Compose import or Dockerfile stub still needs validate / hand-tighten (published host ports are never invented from `EXPOSE`). Dockerfile init `--json` names `extracted` vs `gaps` (`expose`, `health`, `published_ports`) and may add a hand-tighten hint when ports or health are still missing.
 - **Fail** — `receipt handoff`: failure identity + last-ok/drift + ordered next steps. Not automatic remediation.
 - **Live facts** — `explain`: inspect + probes; orientation packaging is additive, not root-cause.
 
@@ -99,6 +101,8 @@ After containers start but health never passes:
 ```bash
 go build -o ./podbay ./cmd/podbay
 PODBAY_BIN=./podbay ./examples/ci-orientation-demo.sh
+PODBAY_BIN=./podbay ./examples/ci-from-codebase-demo.sh
+PODBAY_BIN=./podbay ./examples/ci-dockerfile-from-codebase-demo.sh
 PODBAY_BIN=./podbay ./examples/ci-partial-agent-loop-demo.sh happy
 PODBAY_BIN=./podbay ./examples/ci-partial-agent-loop-demo.sh fail
 PODBAY_BIN=./podbay ./examples/ci-receipt-intelligence-demo.sh

@@ -80,6 +80,129 @@ services:
 	}
 }
 
+func TestBuild_requirementsSkim(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "podbay.yaml")
+	yaml := `
+version: "1"
+project: reqs
+services:
+  web:
+    image: docker.io/library/nginx:alpine
+    ports:
+      - "8080:80"
+    health:
+      http:
+        url: http://127.0.0.1:8080/
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: localhost/reqs:local
+    expose:
+      - "8080"
+    health:
+      exec:
+        command: [wget, -q, -O-, http://127.0.0.1/]
+`
+	if err := os.WriteFile(path, []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, loaded, err := spec.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := Build(c, loaded, BuildOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	byName := map[string]GraphService{}
+	for _, g := range doc.Graph {
+		byName[g.Name] = g
+	}
+	web := byName["web"]
+	if web.Source != SourceImage || web.Health != HealthHTTP {
+		t.Fatalf("web skim: %+v", web)
+	}
+	if len(web.Ports) != 1 || web.Ports[0] != "8080:80" {
+		t.Fatalf("web ports: %v", web.Ports)
+	}
+	app := byName["app"]
+	if app.Source != SourceBuild || app.Health != HealthExec {
+		t.Fatalf("app skim: %+v", app)
+	}
+	if len(app.Expose) != 1 || app.Expose[0] != "8080" {
+		t.Fatalf("app expose: %v", app.Expose)
+	}
+	if len(app.Ports) != 0 {
+		t.Fatalf("app must not invent ports: %v", app.Ports)
+	}
+}
+
+func TestBuild_handTightenHintOnThinContract(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "podbay.yaml")
+	yaml := `
+version: "1"
+project: thin
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: localhost/thin:local
+`
+	if err := os.WriteFile(path, []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, loaded, err := spec.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := Build(c, loaded, BuildOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(doc.NextActions, "\n")
+	if !strings.Contains(joined, "podbay validate") {
+		t.Fatalf("still need validate: %v", doc.NextActions)
+	}
+	if !strings.Contains(joined, HandTightenHint) {
+		t.Fatalf("missing hand-tighten: %v", doc.NextActions)
+	}
+}
+
+func TestBuild_noHandTightenWhenPortsAndHealthPresent(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "podbay.yaml")
+	yaml := `
+version: "1"
+project: ready
+services:
+  web:
+    image: docker.io/library/nginx:alpine
+    ports:
+      - "8080:80"
+    health:
+      http:
+        url: http://127.0.0.1:8080/
+`
+	if err := os.WriteFile(path, []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, loaded, err := spec.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, err := Build(c, loaded, BuildOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(strings.Join(doc.NextActions, "\n"), HandTightenHint) {
+		t.Fatalf("complete contract should not hint hand-tighten: %v", doc.NextActions)
+	}
+}
+
 func TestBuild_nilContract(t *testing.T) {
 	_, err := Build(nil, "/x/podbay.yaml", BuildOptions{})
 	if err == nil {

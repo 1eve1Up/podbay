@@ -63,8 +63,14 @@ func TestFromInitDockerfileSuccess_shape(t *testing.T) {
 	if doc.SourceKind != InitSourceDockerfile {
 		t.Fatalf("source_kind=%q", doc.SourceKind)
 	}
-	if len(doc.NextActions) != 2 {
-		t.Fatalf("next_actions=%v", doc.NextActions)
+	wantNext := InitDockerfileNextActions("/out/podbay.yaml", doc.Gaps)
+	if len(doc.NextActions) != len(wantNext) {
+		t.Fatalf("next_actions=%v want %v", doc.NextActions, wantNext)
+	}
+	for i := range wantNext {
+		if doc.NextActions[i] != wantNext[i] {
+			t.Fatalf("next_actions[%d]=%q want %q", i, doc.NextActions[i], wantNext[i])
+		}
 	}
 	raw, err := MarshalIndent(doc)
 	if err != nil {
@@ -80,6 +86,62 @@ func TestFromInitDockerfileSuccess_shape(t *testing.T) {
 	if _, ok := m["compose_source"]; ok {
 		t.Fatalf("dockerfile success must omit compose_source: %s", raw)
 	}
+	if len(doc.Extracted) != 0 {
+		t.Fatalf("extracted=%v", doc.Extracted)
+	}
+	if !containsAll(doc.Gaps, InitFieldExpose, InitFieldHealth, InitFieldPublishedPorts) {
+		t.Fatalf("gaps=%v", doc.Gaps)
+	}
+}
+
+func TestFromInitDockerfileSuccess_extractedAndGaps(t *testing.T) {
+	c := &spec.Contract{
+		Version: "1",
+		Project: "demo",
+		Services: map[string]spec.Service{
+			"app": {
+				Image:  "localhost/demo:local",
+				Expose: []string{"8080"},
+				Health: &spec.HealthCheck{Exec: &spec.ExecHealth{Command: []string{"wget", "-q", "-O-", "http://127.0.0.1/"}}},
+			},
+		},
+	}
+	doc := FromInitDockerfileSuccess("/out/podbay.yaml", "/src/Dockerfile", c)
+	if !containsAll(doc.Extracted, InitFieldExpose, InitFieldHealth) {
+		t.Fatalf("extracted=%v", doc.Extracted)
+	}
+	if !containsAll(doc.Gaps, InitFieldPublishedPorts) {
+		t.Fatalf("gaps=%v", doc.Gaps)
+	}
+	for _, g := range doc.Gaps {
+		if g == InitFieldExpose || g == InitFieldHealth {
+			t.Fatalf("extracted field also listed as gap: %v", doc.Gaps)
+		}
+	}
+	raw, err := MarshalIndent(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	if m["extracted"] == nil || m["gaps"] == nil {
+		t.Fatalf("%s", raw)
+	}
+}
+
+func containsAll(have []string, want ...string) bool {
+	set := map[string]bool{}
+	for _, s := range have {
+		set[s] = true
+	}
+	for _, s := range want {
+		if !set[s] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestFromInitError_targetExists(t *testing.T) {
