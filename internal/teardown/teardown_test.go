@@ -1,7 +1,10 @@
 package teardown
 
 import (
+	"errors"
+	"io"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -45,5 +48,24 @@ func TestSkipNetworkAfterPartialTeardown(t *testing.T) {
 	}
 	if skipNetworkAfterPartialTeardown(false, false, 3) {
 		t.Fatal("full teardown with leftovers should not skip — caller removes all first")
+	}
+}
+
+func TestFinishUnavailable_exitZeroAndMessage(t *testing.T) {
+	var buf strings.Builder
+	res, err := finishUnavailable(TeardownResult{Project: "pinionize", Network: "podbay_pinionize"}, Options{}, &buf, errors.New("podman ps: exit status 125: Cannot connect to Podman"))
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if !res.NetworkKept || res.EngineWarning == "" {
+		t.Fatalf("res = %#v", res)
+	}
+	got := buf.String()
+	if !strings.Contains(got, "Podman is not running; nothing to tear down") || !strings.Contains(got, "Done.") {
+		t.Fatalf("output = %q", got)
+	}
+	quiet, err := finishUnavailable(TeardownResult{}, Options{Quiet: true, Volumes: true}, io.Discard, errors.New("unavailable"))
+	if err != nil || quiet.EngineWarning == "" {
+		t.Fatalf("quiet = %#v err=%v", quiet, err)
 	}
 }

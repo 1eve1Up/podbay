@@ -2,7 +2,6 @@ package runtimestate
 
 import (
 	"bytes"
-	"os/exec"
 	"strings"
 
 	"github.com/1eve1Up/podbay/internal/runner"
@@ -10,20 +9,14 @@ import (
 
 // ProjectContainerNames returns all Podman container names for the project label (one ps call).
 func ProjectContainerNames(r *runner.Runner) ([]string, error) {
-	cmd := exec.Command("podman", "ps", "-a", "--filter", "label=podbay.project="+r.Project, "--format", "{{.Names}}")
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, err
-	}
-	return parsePsNameLines(out), nil
+	return r.ListProjectContainers()
 }
 
 // ListProjectContainerStates returns a best-effort state map from one podman ps -a call.
 // ExitCode and Error are unset for ps-derived rows; use InspectContainers when full inspect
 // fields are required (for example exited container error text).
 func ListProjectContainerStates(r *runner.Runner) (map[string]*ContainerState, error) {
-	cmd := exec.Command("podman", "ps", "-a", "--filter", "label=podbay.project="+r.Project, "--format", "{{.Names}}\t{{.State}}")
-	out, err := cmd.Output()
+	out, err := r.ProjectPs("{{.Names}}\t{{.State}}")
 	if err != nil {
 		return nil, err
 	}

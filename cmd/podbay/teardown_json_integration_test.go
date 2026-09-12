@@ -94,6 +94,31 @@ func TestTeardownJSONIntegration_networkWarnStillOK(t *testing.T) {
 	}
 }
 
+func TestTeardownJSONIntegration_engineWarnStillOK(t *testing.T) {
+	res := teardown.TeardownResult{
+		Project:       teardownProject,
+		Network:       "podbay_demo",
+		NetworkKept:   true,
+		EngineWarning: "Cannot connect to Podman",
+	}
+	out, exit := captureTeardownJSON(t, res, nil)
+	if exit != 0 {
+		t.Fatalf("exit = %d", exit)
+	}
+	m := parseTeardownEnvelope(t, out)
+	if m["status"] != clijson.StatusOK {
+		t.Fatalf("status = %v", m["status"])
+	}
+	issues, _ := m["issues"].([]any)
+	if len(issues) != 1 {
+		t.Fatalf("issues = %v", issues)
+	}
+	first, _ := issues[0].(map[string]any)
+	if first["code"] != teardown.CodePodmanUnavailable {
+		t.Fatalf("issue code = %v", first["code"])
+	}
+}
+
 func TestTeardownLoadJSONIntegration(t *testing.T) {
 	out := captureTeardownLoadJSON(t, "no such file")
 	m := parseTeardownEnvelope(t, out)

@@ -94,7 +94,7 @@ After containers start but health never passes:
    - `podbay diff --vs-last-ok <dir> <attempt.json> --json` — compare the attempt to last ok via the same pair-diff path (no false drift when no prior ok; issue code `receipt_no_last_ok`).
    - `podbay receipt handoff <attempt.json> --store <dir> --json` — one structured handoff document (identity, failure, last-ok/drift, ordered next-action hints). Handoff is **structured next-steps only**, not automatic remediation.
 4. Run **`logs --json`** and **`explain --json`** with that service (and **`--dependents`** when downstream services are in the partial set). **`explain`** batches container inspect via `runtimestate.InspectContainers`, then runs **single-shot** health probes capped at **5 seconds per probe** (proximate-network diagnostic budget)—not deploy’s `--health-timeout` retry window or full contract `health.timeout`. Explain `--json` also includes an additive **`orientation`** block (same vocabulary as `onboard`).
-5. Tear down with **`down` / `teardown --json`** so the next attempt starts clean.
+5. Tear down with **`down` / `teardown --json`** so the next attempt starts clean. Full **`down`** is idempotent: already-down (no project-labeled containers) exits 0, including a Podman `ps` stale-container race or a stopped Podman machine.
 
 ### Runnable demo
 

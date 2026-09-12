@@ -102,6 +102,9 @@ func Execute(c *spec.Contract, project string, opt Options) (TeardownResult, err
 
 	names, err := r.ListProjectContainers()
 	if err != nil {
+		if runner.IsPodmanUnavailable(err) {
+			return finishUnavailable(res, opt, out, err)
+		}
 		return res, NewFatalError(CodeListError, err)
 	}
 
@@ -136,6 +139,9 @@ func Execute(c *spec.Contract, project string, opt Options) (TeardownResult, err
 
 	remainingAfter, errRem := r.ListProjectContainers()
 	if errRem != nil {
+		if runner.IsPodmanUnavailable(errRem) {
+			return finishUnavailable(res, opt, out, errRem)
+		}
 		return res, NewFatalError(CodeListError, errRem)
 	}
 	skipNetworkPartial := skipNetworkAfterPartialTeardown(opt.KeepNetwork, partialMode, len(remainingAfter))
@@ -212,6 +218,21 @@ func Execute(c *spec.Contract, project string, opt Options) (TeardownResult, err
 
 	if !opt.Quiet {
 		logf("Done.")
+	}
+	return res, nil
+}
+
+// finishUnavailable treats a stopped/unreachable engine as already-down: exit 0,
+// skip network/volume rm, and record a non-fatal warning for JSON.
+func finishUnavailable(res TeardownResult, opt Options, out io.Writer, err error) (TeardownResult, error) {
+	res.NetworkKept = true
+	res.EngineWarning = err.Error()
+	if !opt.Quiet {
+		_, _ = fmt.Fprintf(out, " Podman is not running; nothing to tear down\n")
+		if opt.Volumes {
+			_, _ = fmt.Fprintf(out, " warning: volumes were not removed\n")
+		}
+		_, _ = fmt.Fprintf(out, "Done.\n")
 	}
 	return res, nil
 }

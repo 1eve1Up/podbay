@@ -46,6 +46,22 @@ func TestFromTeardown_successWithNetworkWarn(t *testing.T) {
 	}
 }
 
+func TestFromTeardown_successWithEngineWarn(t *testing.T) {
+	res := teardown.TeardownResult{
+		Project:       "demo",
+		Network:       "podbay_demo",
+		NetworkKept:   true,
+		EngineWarning: "podman ps: exit status 125: Cannot connect to Podman",
+	}
+	d := FromTeardown("/app/podbay.yaml", "demo", nil, nil, false, res, nil)
+	if d.Status != StatusOK {
+		t.Fatalf("status = %s", d.Status)
+	}
+	if len(d.Issues) != 1 || d.Issues[0].Code != teardown.CodePodmanUnavailable || d.Issues[0].Level != validate.LevelWarn {
+		t.Fatalf("issues = %#v", d.Issues)
+	}
+}
+
 func TestFromTeardown_fatalPodman(t *testing.T) {
 	res := teardown.TeardownResult{Project: "demo"}
 	err := teardown.NewFatalError(teardown.CodePodmanError, errors.New("missing podman"))

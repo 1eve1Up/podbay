@@ -39,6 +39,8 @@ Without -f: use "%s path [service ...]" — a single argument is either a contra
 
 Partial teardown skips removing the project network while any project-labeled container remains, and rejects --volumes until you run a full teardown (omit service names).
 
+Full teardown is idempotent: an already-down stack (no containers labeled for the project) exits 0 and still attempts project network cleanup. A Podman ps stale-container race is treated as empty. A stopped Podman machine / missing socket is also exit 0 (nothing to tear down).
+
 With --json: print one versioned JSON document (format_version, kind teardown) on stdout instead of plain text.
 
 Exit codes:

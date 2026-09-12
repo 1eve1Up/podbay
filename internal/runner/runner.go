@@ -164,29 +164,6 @@ func (r *Runner) PodmanVolumeName(logical string) string {
 	return "podbay_" + r.Project + "_" + sanitize(logical)
 }
 
-// ListProjectContainers returns container names that carry label podbay.project=<Runner.Project>.
-func (r *Runner) ListProjectContainers() ([]string, error) {
-	cmd := r.podman("ps", "-a", "--filter", "label=podbay.project="+r.Project, "--format", "{{.Names}}")
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("podman ps: %w", err)
-	}
-	var names []string
-	for _, line := range strings.Split(string(bytes.TrimSpace(out)), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		for _, name := range strings.Split(line, ",") {
-			name = strings.TrimSpace(name)
-			if name != "" {
-				names = append(names, name)
-			}
-		}
-	}
-	return names, nil
-}
-
 // RemoveContainersForce runs podman rm -f for the given names (missing containers are ignored).
 func (r *Runner) RemoveContainersForce(names []string) {
 	var args []string

@@ -22,6 +22,7 @@ func TestIssueCodes_nonEmpty(t *testing.T) {
 		CodePodmanError,
 		CodeListError,
 		CodeNetworkWarn,
+		CodePodmanUnavailable,
 		CodeVolumeError,
 	} {
 		if c == "" {

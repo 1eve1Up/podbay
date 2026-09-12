@@ -2,10 +2,11 @@ package teardown
 
 // Stable issue codes for KindTeardown clijson documents (agents / CI).
 const (
-	CodePodmanError = "teardown_podman_error"
-	CodeListError   = "teardown_list_error"
-	CodeNetworkWarn = "teardown_network_warning"
-	CodeVolumeError = "teardown_volume_error"
+	CodePodmanError       = "teardown_podman_error"
+	CodeListError         = "teardown_list_error"
+	CodeNetworkWarn       = "teardown_network_warning"
+	CodePodmanUnavailable = "teardown_podman_unavailable"
+	CodeVolumeError       = "teardown_volume_error"
 )
 
 // TeardownResult captures observable facts after teardown.Execute for human and JSON renderers.
@@ -16,7 +17,9 @@ type TeardownResult struct {
 	NetworkRemoved bool
 	NetworkKept    bool
 	NetworkWarning string
-	VolumeNames    []string
+	// EngineWarning is a non-fatal note when Podman is not reachable (stopped machine).
+	EngineWarning string
+	VolumeNames   []string
 }
 
 // ExitCode is the CLI exit code: 1 when runErr is non-nil, otherwise 0.

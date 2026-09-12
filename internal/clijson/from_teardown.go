@@ -11,7 +11,8 @@ import (
 //
 // Status is ok when runErr is nil, failed otherwise. A non-fatal network rm
 // warning is recorded as issues[] with level warn and code
-// teardown_network_warning; status remains ok.
+// teardown_network_warning; a stopped engine is teardown_podman_unavailable.
+// Status remains ok for both.
 //
 // deployServices and dependentsExpand mirror validate/deploy JSON when partial
 // teardown roots were used (additive fields; omitted when unset).
@@ -64,6 +65,13 @@ func FromTeardown(contractPath, project string, profiles []string, deployService
 			Level:   validate.LevelWarn,
 			Code:    teardown.CodeNetworkWarn,
 			Message: res.NetworkWarning,
+		})
+	}
+	if res.EngineWarning != "" {
+		doc.Issues = append(doc.Issues, Issue{
+			Level:   validate.LevelWarn,
+			Code:    teardown.CodePodmanUnavailable,
+			Message: res.EngineWarning,
 		})
 	}
 	return doc

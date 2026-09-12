@@ -155,7 +155,7 @@ Podbay is meant to fail closed in automation:
 - `validate` exits non-zero on fail-level validation issues.
 - `deploy` exits non-zero on validation or runtime failure. It does not write a receipt on preflight validate failure or when `--receipt` is unset; health-gate failures with `--receipt` write an intentional attempt receipt (`status: failed`).
 - `diff` exits non-zero when drift is detected or comparison cannot complete.
-- `teardown` / `down` remove what they can and report structured issues in JSON; network removal warnings are non-fatal.
+- `teardown` / `down` remove what they can and report structured issues in JSON; network removal warnings are non-fatal. Already-down stacks exit **0** (no labeled containers). A Podman `ps` stale-container race (`no such container`, often exit 125) is treated as an empty list. A stopped machine / missing socket (`Cannot connect to Podman`) is also exit **0** with a warn issue **`teardown_podman_unavailable`** (nothing to tear down). Other `podman ps` failures still exit **1** and include stderr.
 - `logs --json` exits **0** on success (including empty per-entry `log_body` values) and **1** on contract load/resolution errors, Podman unavailability, `podman logs` failure, **`--json` with `--follow`**, or **`--follow`** with multiple resolved services. Success may include **`log_entries[]`**, **`deploy_services`**, and **`dependents_expand`** when partial roots apply.
 - `import compose --json` exits **0** on success and **1** on failure (JSON on stdout in both cases).
 
