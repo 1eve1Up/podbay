@@ -13,6 +13,7 @@ Podbay’s JSON output is designed for tools, agents, and CI. Versioned document
 - `status`, usually `ok` or `failed`
 - `issues[]`, with stable-ish codes, levels, messages, and optional service names
 - optional `deploy_services` on **`validate`** / **`deploy`** / **`diff`** / **`ps`** / **`explain`** / **`teardown` / `down`** / **`onboard`** JSON when you pass explicit service roots on the CLI; optional **`dependents_expand`** when partial roots are combined with **`--dependents`**
+- optional **`probes_skipped`** on **`explain --json`** when **`--no-probes`** is set (inspect and orientation remain; no new diagnosis or remediation fields)
 
 ### Orientation / onboard
 
@@ -30,10 +31,11 @@ Load failures with `--json` use `status: failed` and issue code **`orientation_l
 podbay init -f /tmp/demo/podbay.yaml
 podbay onboard -f /tmp/demo/podbay.yaml --json
 podbay explain -f examples/nginx --json   # includes orientation when Podman is up
+podbay explain -f examples/nginx --json --no-probes  # probes_skipped; inspect/orientation only
 PODBAY_BIN=./podbay ./examples/ci-orientation-demo.sh
 ```
 
-Orientation is **arrive** packaging. Failure intelligence remains **`receipt handoff`**. Explain remains factual runtime/health; orientation does not add causal diagnosis.
+Orientation is **arrive** packaging. Failure intelligence remains **`receipt handoff`**. Explain remains factual runtime/health and does not infer root cause; **`--no-probes`** adds **`probes_skipped`** only. Orientation does not add causal diagnosis.
 
 ### Deploy health-gate failures
 

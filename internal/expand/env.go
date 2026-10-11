@@ -120,6 +120,9 @@ func MergeServiceEnvFiles(contractDir string, files []ServiceEnvFile) (map[strin
 }
 
 // LoadHostSubst builds a map for ${VAR} substitution: os env, then project env files (relative to contractDir).
+// Env-file parses are memoized by path plus content digest (size/mtime hit skips a re-read).
+// Process environment is read on every call and is never written to disk. File keys still override
+// process env, matching prior merge order.
 // If hostEnvFiles is nil, loads .env.example then .env when each exists. If hostEnvFiles is non-nil,
 // only those paths are loaded in order (missing files are skipped without error).
 func LoadHostSubst(contractDir string, hostEnvFiles []string) (map[string]string, error) {
@@ -137,8 +140,12 @@ func LoadHostSubst(contractDir string, hostEnvFiles []string) (map[string]string
 	}
 	for _, name := range files {
 		p := filepath.Join(contractDir, name)
-		if err := MergeFile(m, p, true); err != nil {
+		parsed, err := loadHostEnvFile(p)
+		if err != nil {
 			return nil, fmt.Errorf("env file %q: %w", name, err)
+		}
+		for k, v := range parsed {
+			m[k] = v
 		}
 	}
 	return m, nil

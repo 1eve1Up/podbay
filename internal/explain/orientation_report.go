@@ -1,9 +1,6 @@
 package explain
 
 import (
-	"path/filepath"
-
-	"github.com/1eve1Up/podbay/internal/expand"
 	"github.com/1eve1Up/podbay/internal/orientation"
 	"github.com/1eve1Up/podbay/internal/runner"
 	"github.com/1eve1Up/podbay/internal/spec"
@@ -25,31 +22,11 @@ func OrientationReport(c *spec.Contract, contractPath, project string, profiles,
 	if err := runner.EnsurePodman(); err != nil {
 		return doc, nil
 	}
-	hostSubst, err := expand.LoadHostSubst(filepath.Dir(contractPath), c.HostEnvFiles)
-	if err != nil {
-		return doc, nil
-	}
-	profileActive := c.ServicesForProfiles(profiles)
-	obs, err := spec.ObservabilityActiveServices(profileActive, deployRoots, expandDependents)
-	if err != nil {
-		return doc, nil
-	}
-	iterate := spec.ServiceNamesSorted(profileActive)
-	if len(deployRoots) > 0 {
-		iterate = spec.ServiceNamesSorted(obs)
-	}
-	r := runner.New(project)
-	states, err := inspectServiceContainers(r, iterate)
+	sess, err := prepareExplain(c, contractPath, project, profiles, deployRoots, expandDependents, false)
 	if err != nil {
 		orientation.AttachRuntime(doc, false, nil)
 		return doc, nil
 	}
-	statuses := make([]ServiceStatus, 0, len(iterate))
-	for _, svcName := range iterate {
-		cname := r.ContainerName(svcName)
-		st := collectServiceStatus(r, svcName, profileActive[svcName], hostSubst, states[cname], nil)
-		statuses = append(statuses, st)
-	}
-	orientation.AttachRuntime(doc, true, RuntimeRowsFromStatus(statuses))
+	orientation.AttachRuntime(doc, true, RuntimeRowsFromStatus(sess.statuses))
 	return doc, nil
 }

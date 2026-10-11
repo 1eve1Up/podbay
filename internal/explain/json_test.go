@@ -6,8 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/1eve1Up/podbay/internal/orientation"
+	"github.com/1eve1Up/podbay/internal/runner"
+	"github.com/1eve1Up/podbay/internal/runtimestate"
 	"github.com/1eve1Up/podbay/internal/spec"
 )
 
@@ -34,6 +37,154 @@ func TestExplainJSONV1RequiredKeys(t *testing.T) {
 	}
 	if int(m["format_version"].(float64)) != ExplainJSONFormatVersion {
 		t.Fatalf("format_version got %v", m["format_version"])
+	}
+}
+
+func TestExplainJSONV1_probesSkippedAdditive(t *testing.T) {
+	doc := explainJSONV1{
+		FormatVersion:  ExplainJSONFormatVersion,
+		Kind:           "explain",
+		Status:         "ok",
+		Project:        "demo",
+		ContractPath:   "/app/podbay.yaml",
+		ActiveServices: []string{"web"},
+		Issues:         []explainIssue{},
+		Services:       []serviceJSON{{Name: "web", Container: "podbay_demo_web", Running: true, State: "running"}},
+		ProbesSkipped:  true,
+	}
+	raw, err := json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	if m["probes_skipped"] != true {
+		t.Fatalf("probes_skipped: %v", m["probes_skipped"])
+	}
+	if _, ok := m["services"]; !ok {
+		t.Fatal("services must remain")
+	}
+	if _, ok := m["orientation"]; ok {
+		t.Fatal("orientation is optional; unset fixture should omit it")
+	}
+	svc := m["services"].([]any)[0].(map[string]any)
+	if _, ok := svc["health"]; ok {
+		t.Fatalf("no-probes JSON must not invent health: %+v", svc)
+	}
+
+	unset := explainJSONV1{
+		FormatVersion: ExplainJSONFormatVersion,
+		Kind:          "explain",
+		Status:        "ok",
+		Project:       "demo",
+		Services:      []serviceJSON{{Name: "web", Container: "c"}},
+	}
+	raw2, err := json.Marshal(unset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m2 map[string]any
+	if err := json.Unmarshal(raw2, &m2); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := m2["probes_skipped"]; ok {
+		t.Fatal("probes_skipped must stay omitempty when probes ran")
+	}
+}
+
+func TestNoProbesJSON_inspectAndOrientationWithoutHealth(t *testing.T) {
+	probed := 0
+	origHTTP := httpProbeOnceFn
+	origExec := execOnceWithTimeoutFn
+	httpProbeOnceFn = func(string, bool, time.Duration) (int, error) {
+		probed++
+		return 200, nil
+	}
+	execOnceWithTimeoutFn = func(string, []string, time.Duration) ([]byte, error) {
+		probed++
+		return []byte("ok"), nil
+	}
+	t.Cleanup(func() {
+		httpProbeOnceFn = origHTTP
+		execOnceWithTimeoutFn = origExec
+	})
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "podbay.yaml")
+	yaml := `
+version: "1"
+project: noprobesjson
+services:
+  web:
+    image: docker.io/library/nginx:alpine
+    health:
+      http:
+        url: http://127.0.0.1:1/
+      exec:
+        command: ["true"]
+`
+	if err := os.WriteFile(path, []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, loaded, err := spec.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := runner.New("noprobesjson")
+	iterate := []string{"web"}
+	states := map[string]*runtimestate.ContainerState{
+		r.ContainerName("web"): {State: "running"},
+	}
+	statuses := collectStatuses(r, iterate, c.Services, nil, states, true)
+	if probed != 0 {
+		t.Fatalf("--no-probes still performed HTTP/exec: %d", probed)
+	}
+	if len(statuses) != 1 || statuses[0].HTTPStatus != 0 || statuses[0].ExecRan {
+		t.Fatalf("probe fields: %+v", statuses)
+	}
+
+	doc, err := buildLiveOrientation(c, loaded, nil, nil, false, statuses)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := explainJSONV1{
+		FormatVersion:  ExplainJSONFormatVersion,
+		Kind:           "explain",
+		Status:         "ok",
+		Project:        "noprobesjson",
+		ContractPath:   loaded,
+		ActiveServices: iterate,
+		Issues:         []explainIssue{},
+		Services:       []serviceJSON{serviceStatusToJSON(statuses[0])},
+		Orientation:    doc,
+		ProbesSkipped:  true,
+	}
+	raw, err := json.Marshal(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	if m["kind"] != "explain" || m["probes_skipped"] != true {
+		t.Fatalf("envelope: %+v", m)
+	}
+	if _, ok := m["orientation"]; !ok {
+		t.Fatal("orientation must remain present")
+	}
+	svcs, ok := m["services"].([]any)
+	if !ok || len(svcs) != 1 {
+		t.Fatalf("services: %v", m["services"])
+	}
+	svc := svcs[0].(map[string]any)
+	if svc["name"] != "web" || svc["state"] != "running" {
+		t.Fatalf("inspect missing: %+v", svc)
+	}
+	if _, ok := svc["health"]; ok {
+		t.Fatalf("no-probes JSON must omit health: %+v", svc)
 	}
 }
 

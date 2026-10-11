@@ -9,6 +9,11 @@ import (
 	"github.com/1eve1Up/podbay/internal/spec"
 )
 
+var (
+	httpProbeOnceFn       = runner.HTTPProbeOnce
+	execOnceWithTimeoutFn = runner.ExecOnceWithTimeout
+)
+
 // ServiceStatus is runtime and health-probe state for one service (shared by text and JSON explain).
 type ServiceStatus struct {
 	Name       string
@@ -41,8 +46,10 @@ func inspectServiceContainers(r *runner.Runner, serviceNames []string) (map[stri
 // collectServiceStatus builds one service's explain status from a prefetched
 // container state (for example from runtimestate.InspectContainers). When
 // inspectErr is non-nil, probes are skipped. When st is nil and inspectErr is
-// nil, the container is treated as missing.
-func collectServiceStatus(r *runner.Runner, svcName string, svc spec.Service, hostSubst map[string]string, st *runtimestate.ContainerState, inspectErr error) ServiceStatus {
+// nil, the container is treated as missing. When skipProbes is true, inspect
+// fields still populate but HTTP and exec probes are not run (HTTPStatus and
+// ExecRan stay unset).
+func collectServiceStatus(r *runner.Runner, svcName string, svc spec.Service, hostSubst map[string]string, st *runtimestate.ContainerState, inspectErr error, skipProbes bool) ServiceStatus {
 	svc = expand.ExpandService(svc, hostSubst)
 	cname := r.ContainerName(svcName)
 	out := ServiceStatus{Name: svcName, Container: cname}
@@ -60,10 +67,14 @@ func collectServiceStatus(r *runner.Runner, svcName string, svc spec.Service, ho
 	out.StateError = st.Error
 	out.Running = st.State == "running"
 
+	if skipProbes {
+		return out
+	}
+
 	if svc.Health != nil && svc.Health.HTTP != nil && svc.Health.HTTP.URL != "" {
 		out.HTTPURL = svc.Health.HTTP.URL
 		timeout := explainProbeTimeout(svc, true)
-		code, err := runner.HTTPProbeOnce(svc.Health.HTTP.URL, svc.Health.HTTP.Insecure, timeout)
+		code, err := httpProbeOnceFn(svc.Health.HTTP.URL, svc.Health.HTTP.Insecure, timeout)
 		out.HTTPStatus = code
 		if err != nil {
 			out.HTTPProbeErr = err.Error()
@@ -75,7 +86,7 @@ func collectServiceStatus(r *runner.Runner, svcName string, svc spec.Service, ho
 			out.ExecErr = "container not running"
 		} else {
 			timeout := explainProbeTimeout(svc, false)
-			bout, err := runner.ExecOnceWithTimeout(cname, svc.Health.Exec.Command, timeout)
+			bout, err := execOnceWithTimeoutFn(cname, svc.Health.Exec.Command, timeout)
 			out.ExecOutput = strings.TrimSpace(string(bout))
 			if err != nil {
 				out.ExecErr = err.Error()

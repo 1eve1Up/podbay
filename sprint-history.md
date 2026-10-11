@@ -1,3 +1,97 @@
+# Sprint 42: Loop → faster explain
+
+2026-10-11
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Program:** Perf — *agent-loop latency after arrive and down are honest*.
+
+**Carries from Sprint 41:** Full `down` is idempotent (empty labels, stale `ps`, stopped machine). Arrive/orientation already names requirements. Each `explain` still re-read contract/env at every call site and ran serial 5s-capped probes.
+
+---
+
+## Sprint goal
+
+Cut mid-loop `explain` / `onboard` latency without changing default facts: memoize contract + env-file parses (live process env every call), add `explain --no-probes`, then probe remaining services in parallel under the same 5s cap.
+
+---
+
+### What happened
+
+We shipped env-file and `spec.Load` content-digest memos, one `LoadHostSubst` per explain/onboard, `explain --no-probes` (JSON `probes_skipped`), and concurrent default probes. Digest-after-read replaced a size/mtime short-circuit that could serve a same-size rewrite stale. Eight **`feature/PIN-4201`** … **`feature/PIN-4208`** merges on **`main`**; **`go test ./...`** green (**1160 insertions / 154 deletions** across **20** files, **`0b51725`** … **`890628a`**). Diagnosis still deferred.
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-10-11 (UTC, sprint wrap)
+- **Scope**: Perf; memo + `--no-probes` + parallel probes (no diagnosis, no process-env disk cache).
+
+### 5 whys (why the 30-second Clarity budget still died after arrive and down were honest)
+
+1. **Why did mid-loop `explain` still blow 30 seconds?** Serial 5s-capped probes × N services, plus re-reading contract and env files at every helper.
+2. **Why did one command re-parse?** Text, JSON, and onboard each called `LoadHostSubst`; `spec.Load` and dotenv parses had no content memo.
+3. **Why were probes serial with no fast path?** Status collection ran HTTP/exec inline. Inspect-only mid-loop still waited the full budget.
+4. **Why not persist process env or skip probes by default?** Process env is live per process; default explain must stay factual.
+5. **Root lesson:** **Memo file parses, load subst once, skip probes only when asked, parallelize the rest.** Size+mtime is not a digest. Never write `os.Environ` to `.podbay`.
+
+### Actions
+
+- [x] Env-file memo, contract memo, one subst per explain, `--no-probes`, parallel probes, coverage, docs, exit bar (**PIN-4201** … **PIN-4208**).
+- [ ] Causal diagnosis in `explain` (deferred — operate loop).
+- [ ] Broader codebase heuristics (deferred — adoption++).
+
+Blog: [docs/blog-sprint-42-faster-explain.md](docs/blog-sprint-42-faster-explain.md).
+
+# Sprint 41: Down → already-down
+
+2026-10-11
+
+**Repo:** Podbay (Go tree at monorepo root).
+
+**Program:** Agent-loop reliability — *`down` means make it not running*.
+
+**Carries from Sprint 40:** Arrive/orientation and `v2026.8.0` notes landed. Full `podbay down` still failed with `podman ps: exit status 125` when the stack was already gone and the Podman machine was stopped.
+
+---
+
+## Sprint goal
+
+Make full `podbay down` / `teardown` idempotent: empty project label list, stale `podman ps` races, and a stopped machine / missing socket exit 0. Keep `diff` / `ps` / `explain` fail-closed when the engine is down.
+
+---
+
+### What happened
+
+We shipped `runner.ProjectPs` (stderr capture, stale-container race → empty list, one 125 retry), teardown-only `IsPodmanUnavailable` → exit 0 with `teardown_podman_unavailable` warn, and docs. One commit on **`main`** (`5f2e63f`); **`go test`** green on runner / teardown / clijson / cmd (**288 insertions / 41 deletions** across **15** files). Adjacent: **`v2026.8.0`** release notes (`4454cff`). Perf track still deferred.
+
+---
+
+## Retrospective
+
+### Meta
+
+- **Date / time**: 2026-10-11 (UTC, sprint wrap)
+- **Scope**: Agent-loop reliability; teardown idempotency only (no observability softening, no machine autostart).
+
+### 5 whys (why `down` still failed after a clean already-down)
+
+1. **Why did `podbay down` error on pinionize when backlogzero succeeded?** First `podman ps` returned exit 125; teardown treated any list error as fatal.
+2. **Why was the message only `exit status 125`?** `ListProjectContainers` used `Output()` and discarded stderr.
+3. **Why did `ps` fail when nothing was running?** A stopped `podman machine` cannot list; it is connection refused, not an empty label set.
+4. **Why is that a product failure?** `down` is the “make it not running” gate. Agents retry it. A stopped VM already means nothing is running on this host.
+5. **Root lesson:** **Idempotent teardown must classify empty / stale / unavailable separately from real list failures**—observability stays fail-closed; `down` does not.
+
+### Actions
+
+- [x] Stderr on real `ps` failures; stale `no such container` → empty list; stopped machine → already-down for teardown only (`5f2e63f`).
+- [ ] Broader codebase heuristics (deferred — adoption++).
+- [ ] Env/contract cache; parallel / `--no-probes` explain (deferred — perf track).
+
+Blog: [docs/blog-sprint-41-down-already-down.md](docs/blog-sprint-41-down-already-down.md).
+
 # Sprint 40: Orientation → requirements
 
 2026-08-29

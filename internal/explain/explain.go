@@ -2,10 +2,8 @@ package explain
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
-	"github.com/1eve1Up/podbay/internal/expand"
 	"github.com/1eve1Up/podbay/internal/orientation"
 	"github.com/1eve1Up/podbay/internal/runner"
 	"github.com/1eve1Up/podbay/internal/runtimestate"
@@ -17,69 +15,41 @@ import (
 // use expandDependents like validate/deploy. When exactly one service appears in that resolved set,
 // a dependency summary is printed (same as historical single-focus explain).
 // When deployRoots is empty, all profile-active services are listed (no dependency section unless one service).
-func Report(c *spec.Contract, contractPath, project string, profiles []string, deployRoots []string, expandDependents bool) (string, error) {
+func Report(c *spec.Contract, contractPath, project string, profiles []string, deployRoots []string, expandDependents bool, noProbes bool) (string, error) {
 	if err := runner.EnsurePodman(); err != nil {
 		return "", err
 	}
-	hostSubst, err := expand.LoadHostSubst(filepath.Dir(contractPath), c.HostEnvFiles)
+	sess, err := prepareExplain(c, contractPath, project, profiles, deployRoots, expandDependents, noProbes)
 	if err != nil {
 		return "", err
 	}
 
-	r := runner.New(project)
 	var b strings.Builder
-
-	profileActive := c.ServicesForProfiles(profiles)
-	if len(c.Services) > 0 && len(profileActive) == 0 {
-		return "", fmt.Errorf("no services selected for this profile set (check --profile)")
-	}
-	if len(profileActive) == 0 && len(c.Services) == 0 {
-		return "", fmt.Errorf("no services defined")
-	}
-
-	obs, err := spec.ObservabilityActiveServices(profileActive, deployRoots, expandDependents)
-	if err != nil {
-		return "", err
-	}
-
-	iterate := spec.ServiceNamesSorted(profileActive)
-	if len(deployRoots) > 0 {
-		iterate = spec.ServiceNamesSorted(obs)
-	}
-
-	states, err := inspectServiceContainers(r, iterate)
-	if err != nil {
-		return "", err
-	}
-	statuses := make([]ServiceStatus, 0, len(iterate))
-	for _, svcName := range iterate {
-		cname := r.ContainerName(svcName)
-		st := collectServiceStatus(r, svcName, profileActive[svcName], hostSubst, states[cname], nil)
-		statuses = append(statuses, st)
-	}
-
 	b.WriteString(fmt.Sprintf("Project: %s\n", project))
-	b.WriteString(fmt.Sprintf("Active services: %d\n", len(iterate)))
-	if len(iterate) > 0 {
-		b.WriteString(strings.Join(iterate, ", "))
+	b.WriteString(fmt.Sprintf("Active services: %d\n", len(sess.iterate)))
+	if len(sess.iterate) > 0 {
+		b.WriteString(strings.Join(sess.iterate, ", "))
 		b.WriteString("\n")
 	}
-	if orient, oerr := buildLiveOrientation(c, contractPath, profiles, deployRoots, expandDependents, statuses); oerr == nil {
+	if sess.noProbes {
+		b.WriteString("Probes: skipped (--no-probes)\n")
+	}
+	if orient, oerr := buildLiveOrientation(c, contractPath, profiles, deployRoots, expandDependents, sess.statuses); oerr == nil {
 		writeOrientationPreamble(&b, orient)
 	}
 	b.WriteString("\n")
 
-	if len(deployRoots) > 0 && len(iterate) == 1 {
-		b.WriteString(DependencySummary(profileActive, iterate[0]))
+	if len(deployRoots) > 0 && len(sess.iterate) == 1 {
+		b.WriteString(DependencySummary(sess.profileActive, sess.iterate[0]))
 		b.WriteString("\n")
 	}
 
-	for _, st := range statuses {
+	for _, st := range sess.statuses {
 		writeServiceDetail(&b, st)
 	}
 
-	extrasSeed := spec.ServiceNamesSorted(profileActive)
-	extra, err := runtimestate.ExtraContainerNames(r, extrasSeed)
+	extrasSeed := spec.ServiceNamesSorted(sess.profileActive)
+	extra, err := runtimestate.ExtraContainerNames(sess.r, extrasSeed)
 	if err == nil && len(extra) > 0 {
 		b.WriteString("Unexpected containers (same project label, unknown service):\n")
 		for _, x := range extra {

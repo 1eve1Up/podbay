@@ -40,7 +40,7 @@ Partial deploy **pre-waits** on **`depends_on`** targets outside the active set 
 | Term | Meaning |
 | --- | --- |
 | **`health.timeout`** | Contract per-try probe deadline for **deploy** health gates (may be longer during cold start / `start_period`). |
-| **Explain probe budget** | **`podbay explain`** runs **single-shot** HTTP/exec probes capped at **5s per probe** (shorter than deploy when contract timeout is large). See [agent-loop.md](agent-loop.md) failure playbook. |
+| **Explain probe budget** | **`podbay explain`** runs **single-shot** HTTP/exec probes capped at **5s per probe** (shorter than deploy when contract timeout is large). **`--no-probes`** is opt-in inspect-only; default explain still probes. See [agent-loop.md](agent-loop.md) failure playbook. |
 | **Orientation** | Shared arrive/mid-loop document (`kind: orientation`): identity, graph skim, optional runtime summary, ordered `next_actions`. Emitted by **`podbay onboard --json`** and as an additive block on **`explain --json`**. Structured next-steps only — not diagnosis or remediation. |
 
 ---
@@ -49,7 +49,7 @@ Partial deploy **pre-waits** on **`depends_on`** targets outside the active set 
 
 | Term | Meaning |
 | --- | --- |
-| **`LoadHostSubst`** | Builds the `${VAR}` substitution map: process environment, then contract-directory env files (default `.env.example` then `.env`, or **`host_env_files`**). |
+| **`LoadHostSubst`** | Builds the `${VAR}` substitution map: live process environment (`os.Environ`), then contract-directory env files (default `.env.example` then `.env`, or **`host_env_files`**). Env-file parses are memoized by content digest only; process env is never persisted and is not written to `.podbay`. |
 | **`ExpandService`** | Applies host substitution to runtime-facing service fields (ports, volumes, env, health URLs, etc.) before validate checks or deploy/run. Shared across validate, deploy, and explain. |
 | **Host-side substitution** | Expansion using the host env map. Diff and ps do not expand service fields for comparison. |
 

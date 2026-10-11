@@ -219,6 +219,7 @@ func explainCmd(fileFlag *string, defaultFile string) *cobra.Command {
 	var profiles []string
 	jsonOut := false
 	dependents := false
+	noProbes := false
 	cmd := &cobra.Command{
 		Use:   "explain [podbay.yaml|directory] [service ...]",
 		Short: "Describe expected vs actual runtime (Podman + health probes)",
@@ -230,7 +231,9 @@ With -f / --file: optional trailing arguments are partial roots; zero extras mea
 
 When partial roots select exactly one service, dependency context (depends_on, dependents, deploy order) is included (same as the old single-service positional form).
 
-With --json: print one JSON document (format_version) for agents and CI instead of plain text.`,
+With --json: print one JSON document (format_version) for agents and CI instead of plain text.
+With --no-probes: inspect containers and emit orientation; skip HTTP and exec health probes.
+Default explain (flag unset) still runs probes with the existing 5s per-probe cap.`,
 		Args:         cobra.ArbitraryArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -240,14 +243,14 @@ With --json: print one JSON document (format_version) for agents and CI instead 
 			}
 			proj := projectName(c, path)
 			if jsonOut {
-				raw, err := explain.ReportJSON(c, path, proj, profiles, deployServices, dependents)
+				raw, err := explain.ReportJSON(c, path, proj, profiles, deployServices, dependents, noProbes)
 				if err != nil {
 					return err
 				}
 				fmt.Fprintln(cmd.OutOrStdout(), string(raw))
 				return nil
 			}
-			s, err := explain.Report(c, path, proj, profiles, deployServices, dependents)
+			s, err := explain.Report(c, path, proj, profiles, deployServices, dependents, noProbes)
 			if err != nil {
 				return err
 			}
@@ -258,6 +261,7 @@ With --json: print one JSON document (format_version) for agents and CI instead 
 	cmd.Flags().StringSliceVar(&profiles, "profile", nil, "enable services with this profile (repeatable)")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit versioned JSON (format_version) instead of text")
 	cmd.Flags().BoolVar(&dependents, "dependents", false, "with partial service targets, include transitive dependents within the profile-active set")
+	cmd.Flags().BoolVar(&noProbes, "no-probes", false, "inspect and emit orientation only; skip HTTP and exec health probes")
 	return cmd
 }
 

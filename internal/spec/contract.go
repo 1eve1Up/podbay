@@ -1,13 +1,10 @@
 package spec
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 const DefaultFilename = "podbay.yaml"
@@ -159,6 +156,9 @@ type Requirement struct {
 }
 
 // Load reads and parses podbay.yaml from path (file or directory).
+// Unchanged file bytes at the same absolute path reuse the parsed Contract
+// (keyed by path plus content digest). Parse and validation errors still
+// surface and are not cached. Nothing is written to disk.
 func Load(path string) (*Contract, string, error) {
 	var file string
 	info, err := os.Stat(path)
@@ -170,31 +170,7 @@ func Load(path string) (*Contract, string, error) {
 	} else {
 		file = path
 	}
-	data, err := os.ReadFile(file)
-	if err != nil {
-		return nil, file, err
-	}
-	var c Contract
-	if err := yaml.Unmarshal(data, &c); err != nil {
-		return nil, file, fmt.Errorf("parse yaml: %w", err)
-	}
-	if c.Version == "" {
-		c.Version = "1"
-	}
-	if c.Services == nil {
-		c.Services = map[string]Service{}
-	}
-	for name, svc := range c.Services {
-		for i := range svc.DependsOn {
-			svc.DependsOn[i].Condition = NormalizeCondition(svc.DependsOn[i].Condition)
-			if svc.DependsOn[i].Condition != ConditionStarted && svc.DependsOn[i].Condition != ConditionHealthy {
-				return nil, file, fmt.Errorf("service %q: depends_on %q: unknown condition %q (use started or healthy)", name, svc.DependsOn[i].Service, svc.DependsOn[i].Condition)
-			}
-		}
-		svc.RedeployPeers = normalizeRedeployPeerNames(svc.RedeployPeers)
-		c.Services[name] = svc
-	}
-	return &c, file, nil
+	return loadMemoized(file)
 }
 
 func normalizeRedeployPeerNames(in []string) []string {

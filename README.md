@@ -62,6 +62,8 @@ Podbay uses calendar-based release versions. Calendar versions identify releases
 | [docs/blog-sprint-38-init-from-codebase.md](docs/blog-sprint-38-init-from-codebase.md) | Sprint 38: `init --from-codebase` adoption blog |
 | [docs/blog-sprint-39-dockerfile-from-codebase.md](docs/blog-sprint-39-dockerfile-from-codebase.md) | Sprint 39: Dockerfile-only from-codebase blog |
 | [docs/blog-sprint-40-orientation-requirements.md](docs/blog-sprint-40-orientation-requirements.md) | Sprint 40: orientation requirements skim + Dockerfile instruction fill |
+| [docs/blog-sprint-41-down-already-down.md](docs/blog-sprint-41-down-already-down.md) | Sprint 41: idempotent `down` (empty stack, stale `ps`, stopped machine) |
+| [docs/blog-sprint-42-faster-explain.md](docs/blog-sprint-42-faster-explain.md) | Sprint 42: env/contract memo, `explain --no-probes`, parallel probes |
 | [docs/glossary.md](docs/glossary.md) | Terminology across CLI, JSON, and Go |
 | [docs/contract-change-checklist.md](docs/contract-change-checklist.md) | Which layers to touch per change type |
 

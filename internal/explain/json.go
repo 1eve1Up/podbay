@@ -2,11 +2,8 @@ package explain
 
 import (
 	"encoding/json"
-	"fmt"
-	"path/filepath"
 	"sort"
 
-	"github.com/1eve1Up/podbay/internal/expand"
 	"github.com/1eve1Up/podbay/internal/orientation"
 	"github.com/1eve1Up/podbay/internal/runner"
 	"github.com/1eve1Up/podbay/internal/runtimestate"
@@ -32,6 +29,7 @@ type explainJSONV1 struct {
 	Services             []serviceJSON         `json:"services"`
 	UnexpectedContainers []string              `json:"unexpected_containers,omitempty"`
 	Orientation          *orientation.Document `json:"orientation,omitempty"`
+	ProbesSkipped        bool                  `json:"probes_skipped,omitempty"`
 }
 
 // explainIssue keeps the envelope shape consistent with validate/deploy/diff documents.
@@ -84,49 +82,22 @@ type execHealthJSON struct {
 }
 
 // ReportJSON returns indented JSON for agents and CI (same inputs as Report).
-func ReportJSON(c *spec.Contract, contractPath, project string, profiles []string, deployRoots []string, expandDependents bool) ([]byte, error) {
+func ReportJSON(c *spec.Contract, contractPath, project string, profiles []string, deployRoots []string, expandDependents bool, noProbes bool) ([]byte, error) {
 	if err := runner.EnsurePodman(); err != nil {
 		return nil, err
 	}
-	hostSubst, err := expand.LoadHostSubst(filepath.Dir(contractPath), c.HostEnvFiles)
+	sess, err := prepareExplain(c, contractPath, project, profiles, deployRoots, expandDependents, noProbes)
 	if err != nil {
 		return nil, err
-	}
-
-	r := runner.New(project)
-	profileActive := c.ServicesForProfiles(profiles)
-	if len(c.Services) > 0 && len(profileActive) == 0 {
-		return nil, fmt.Errorf("no services selected for this profile set (check --profile)")
-	}
-	if len(profileActive) == 0 && len(c.Services) == 0 {
-		return nil, fmt.Errorf("no services defined")
-	}
-
-	obs, err := spec.ObservabilityActiveServices(profileActive, deployRoots, expandDependents)
-	if err != nil {
-		return nil, err
-	}
-
-	iterate := spec.ServiceNamesSorted(profileActive)
-	if len(deployRoots) > 0 {
-		iterate = spec.ServiceNamesSorted(obs)
 	}
 
 	focusOut := ""
-	if len(deployRoots) > 0 && len(iterate) == 1 {
-		focusOut = iterate[0]
+	if len(deployRoots) > 0 && len(sess.iterate) == 1 {
+		focusOut = sess.iterate[0]
 	}
 
-	states, err := inspectServiceContainers(r, iterate)
-	if err != nil {
-		return nil, err
-	}
-	statuses := make([]ServiceStatus, 0, len(iterate))
-	svcs := make([]serviceJSON, 0, len(iterate))
-	for _, svcName := range iterate {
-		cname := r.ContainerName(svcName)
-		st := collectServiceStatus(r, svcName, profileActive[svcName], hostSubst, states[cname], nil)
-		statuses = append(statuses, st)
+	svcs := make([]serviceJSON, 0, len(sess.statuses))
+	for _, st := range sess.statuses {
 		svcs = append(svcs, serviceStatusToJSON(st))
 	}
 
@@ -137,17 +108,18 @@ func ReportJSON(c *spec.Contract, contractPath, project string, profiles []strin
 		Project:        project,
 		ContractPath:   contractPath,
 		Profiles:       profiles,
-		ActiveServices: iterate,
+		ActiveServices: sess.iterate,
 		Focus:          focusOut,
 		Issues:         []explainIssue{},
 		Services:       svcs,
+		ProbesSkipped:  sess.noProbes,
 	}
 	if len(deployRoots) > 0 {
 		out.DeployServices = append([]string(nil), deployRoots...)
 		out.DependentsExpand = expandDependents && len(out.DeployServices) > 0
 	}
 	if focusOut != "" {
-		out.Dependencies = buildFocusDepsJSON(profileActive, focusOut)
+		out.Dependencies = buildFocusDepsJSON(sess.profileActive, focusOut)
 	}
 
 	for _, svc := range svcs {
@@ -161,14 +133,14 @@ func ReportJSON(c *spec.Contract, contractPath, project string, profiles []strin
 		}
 	}
 
-	extrasSeed := spec.ServiceNamesSorted(profileActive)
-	extra, err := runtimestate.ExtraContainerNames(r, extrasSeed)
+	extrasSeed := spec.ServiceNamesSorted(sess.profileActive)
+	extra, err := runtimestate.ExtraContainerNames(sess.r, extrasSeed)
 	if err != nil {
 		return nil, err
 	}
 	out.UnexpectedContainers = extra
 
-	if orient, oerr := buildLiveOrientation(c, contractPath, profiles, deployRoots, expandDependents, statuses); oerr == nil {
+	if orient, oerr := buildLiveOrientation(c, contractPath, profiles, deployRoots, expandDependents, sess.statuses); oerr == nil {
 		out.Orientation = orient
 	}
 
