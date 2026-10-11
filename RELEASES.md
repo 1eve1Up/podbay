@@ -1,5 +1,38 @@
 # Podbay Releases
 
+## v2026.10.0
+
+**Date:** October 2026  
+**Stability:** public preview  
+**Contract status:** evolving  
+
+### Shipped scope (additions since `v2026.8.0`)
+
+**Leave / teardown** — full `podbay down` is idempotent when nothing is running:
+
+- **Already-down exits 0** — empty project label list succeeds (`Done.`).
+- **Stale `podman ps`** — `no such container` / `does not exist in database` (often exit 125) is treated as an empty list, with one retry and stderr kept on real failures.
+- **Stopped machine / missing socket** — teardown-only: `Cannot connect to Podman` exits 0 with warn issue **`teardown_podman_unavailable`**. `--json` stays `status: ok`.
+- **Observability stays fail-closed** — `diff` / `ps` / `explain` still error when the engine is down. Other `ps` template failures still exit 1.
+
+**Mid-loop explain** — same facts, less serial wait:
+
+- **Env-file and contract memos** — dotenv and `spec.Load` reuse a parse on content digest. `LoadHostSubst` overlays live `os.Environ` every call. Process env is never written to `.podbay`.
+- **One subst per explain** — text, JSON, and onboard share one `LoadHostSubst` via `prepareExplain`.
+- **`explain --no-probes`** — inspect and orientation still emit; HTTP/exec probes are skipped. `--json` adds additive **`probes_skipped`**. Default explain (flag unset) still probes.
+- **Parallel default probes** — in-scope services probe concurrently under the existing **5s per-probe** cap. Inspect error and `--no-probes` still skip. No shorter stack-wide budget.
+
+```bash
+podbay down
+podbay down --json
+podbay explain -f examples/nginx --json
+podbay explain -f examples/nginx --json --no-probes
+```
+
+Also included relative to `v2026.8.0`: sprint 41–42 wrap blogs and sprint-history. No breaking contract or CLI changes are called out. Explain still does not infer root cause. `--no-probes` is opt-in.
+
+See [docs/cli-json.md](docs/cli-json.md), [docs/agent-loop.md](docs/agent-loop.md), [docs/blog-sprint-41-down-already-down.md](docs/blog-sprint-41-down-already-down.md), and [docs/blog-sprint-42-faster-explain.md](docs/blog-sprint-42-faster-explain.md).
+
 ## v2026.8.0
 
 **Date:** August 2026  

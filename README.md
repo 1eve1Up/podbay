@@ -32,7 +32,7 @@ Podbay is certainly not intended to be “a simpler Kubernetes.” Instead, it i
 
 See `RELEASES.md` for release notes, known limitations, non-goals, and migration guidance.
 
-Podbay uses calendar-based release versions. Calendar versions identify releases; they are not a substitute for compatibility promises. Until a future `v2026.x-stable` or `v1.0` compatibility commitment, assume the following:
+Podbay uses calendar-based release versions. `v2026.10.0` is the current public preview. Calendar versions identify releases; they are not a substitute for compatibility promises. Until a future `v2026.x-stable` or `v1.0` compatibility commitment, assume the following:
 
 - **Contract stability:** the `podbay.yaml` schema may evolve between public preview releases.
 - **Receipt format stability:** receipts are machine-readable and versioned with `format_version`, but fields may still evolve before a stable compatibility commitment.
@@ -47,7 +47,8 @@ Podbay uses calendar-based release versions. Calendar versions identify releases
 - Deploys with Podman using deterministic names and labels: `podbay_<project>_<service>` plus `podbay.project` / `podbay.service`.
 - Writes deploy receipts with `podbay deploy --receipt` (file or directory store): success evidence and health-gate attempt receipts, listable via `podbay receipt list` / `last-ok` / `handoff`.
 - Compares contract vs runtime with `podbay diff`, receipt vs receipt with `podbay diff before.json after.json`, or `--vs-last-ok` against a receipt store.
-- Explains runtime state with `podbay explain`, including health probes and dependency context.
+- Explains runtime state with `podbay explain`, including health probes (default; `--no-probes` for inspect-only) and dependency context.
+- Tears down with `podbay down`: already-down stacks and a stopped Podman machine exit 0; `diff` / `ps` / `explain` stay fail-closed when the engine is down.
 - Emits versioned JSON for agents and CI on key commands: `init`, `onboard`, `validate`, `deploy`, `diff`, `receipt`, `teardown`, `down`, and `logs`.
 - Handles practical Podman parity issues that otherwise waste operator and agent time: named volume `:U`, Podman Machine DNS, `host-gateway`, `host.docker.internal` / `host.containers.internal`, network MTU, and health/log failure hints.
 
